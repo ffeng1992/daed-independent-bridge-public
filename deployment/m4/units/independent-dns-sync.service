@@ -1,0 +1,11 @@
+[Unit]
+Description=Synchronize dnsdist with verified independent DAE state
+After=dnsdist.service independent-bridge.service
+Requires=dnsdist.service
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -I -c "import sys;sys.path[:0]=['/opt/bridge','/opt/bridge/vendor'];from bridge_m4.dns_sync_runtime import main;raise SystemExit(main())"
+TimeoutStartSec=180
+User=root
+Group=root
+UMask=0077

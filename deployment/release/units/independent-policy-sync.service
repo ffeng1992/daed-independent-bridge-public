@@ -1,0 +1,8 @@
+[Unit]
+Description=Independent policy synchronization from verified active bundle
+After=independent-bridge.service bridge-lan-dns.service bridge-policy-dns.service
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -I -c "import sys;sys.path[:0]=['/opt/bridge','/opt/bridge/vendor'];from bridge_m4.release_dns import main;raise SystemExit(main())" policy
+TimeoutStartSec=180
+UMask=0077

@@ -1,0 +1,16 @@
+[Unit]
+Description=Independent read-only source and identity attestor
+After=daed-api.service
+Requires=daed-api.service
+[Service]
+ExecStart=/usr/bin/python3 -I /usr/local/bin/bridge-attestor
+Restart=on-failure
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+RestrictAddressFamilies=AF_UNIX AF_INET
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_SYS_PTRACE CAP_CHOWN
+ReadWritePaths=/var/lib/bridge-m4-attestation /var/lib/daed-independent-bridge/apply.lock
+[Install]
+WantedBy=multi-user.target

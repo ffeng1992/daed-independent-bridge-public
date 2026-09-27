@@ -1,0 +1,576 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "synthetic": {
+      "type": "boolean"
+    },
+    "consistency": {
+      "type": "object",
+      "properties": {
+        "stable": {
+          "type": "boolean"
+        },
+        "transactional": {
+          "const": false
+        }
+      },
+      "required": [
+        "stable",
+        "transactional"
+      ],
+      "additionalProperties": false
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "object",
+          "properties": {
+            "configs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "selected": {
+                    "type": "boolean"
+                  },
+                  "global": {
+                    "type": "object",
+                    "properties": {
+                      "tproxyPort": {
+                        "type": "integer"
+                      },
+                      "tproxyPortProtect": {
+                        "type": "boolean"
+                      },
+                      "soMarkFromDae": {
+                        "type": "integer"
+                      },
+                      "soMarkFromDaeSet": {
+                        "type": "boolean"
+                      },
+                      "logLevel": {
+                        "type": "string"
+                      },
+                      "tcpCheckUrl": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "tcpCheckHttpMethod": {
+                        "type": "string"
+                      },
+                      "udpCheckDns": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "checkInterval": {
+                        "type": "string"
+                      },
+                      "checkTolerance": {
+                        "type": "string"
+                      },
+                      "lanInterface": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "wanInterface": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "allowInsecure": {
+                        "type": "boolean"
+                      },
+                      "dialMode": {
+                        "type": "string"
+                      },
+                      "disableWaitingNetwork": {
+                        "type": "boolean"
+                      },
+                      "enableLocalTcpFastRedirect": {
+                        "type": "boolean"
+                      },
+                      "autoConfigKernelParameter": {
+                        "type": "boolean"
+                      },
+                      "autoConfigFirewallRule": {
+                        "type": "boolean"
+                      },
+                      "sniffingTimeout": {
+                        "type": "string"
+                      },
+                      "tlsImplementation": {
+                        "type": "string"
+                      },
+                      "utlsImitate": {
+                        "type": "string"
+                      },
+                      "tlsFragment": {
+                        "type": "boolean"
+                      },
+                      "tlsFragmentLength": {
+                        "type": "string"
+                      },
+                      "tlsFragmentInterval": {
+                        "type": "string"
+                      },
+                      "pprofPort": {
+                        "type": "integer"
+                      },
+                      "mptcp": {
+                        "type": "boolean"
+                      },
+                      "bootstrapResolver": {
+                        "type": "string"
+                      },
+                      "fallbackResolver": {
+                        "type": "string"
+                      },
+                      "bandwidthMaxTx": {
+                        "type": "string"
+                      },
+                      "bandwidthMaxRx": {
+                        "type": "string"
+                      },
+                      "udphopInterval": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "tproxyPort",
+                      "tproxyPortProtect",
+                      "soMarkFromDae",
+                      "soMarkFromDaeSet",
+                      "logLevel",
+                      "tcpCheckUrl",
+                      "tcpCheckHttpMethod",
+                      "udpCheckDns",
+                      "checkInterval",
+                      "checkTolerance",
+                      "lanInterface",
+                      "wanInterface",
+                      "allowInsecure",
+                      "dialMode",
+                      "disableWaitingNetwork",
+                      "enableLocalTcpFastRedirect",
+                      "autoConfigKernelParameter",
+                      "autoConfigFirewallRule",
+                      "sniffingTimeout",
+                      "tlsImplementation",
+                      "utlsImitate",
+                      "tlsFragment",
+                      "tlsFragmentLength",
+                      "tlsFragmentInterval",
+                      "pprofPort",
+                      "mptcp",
+                      "bootstrapResolver",
+                      "fallbackResolver",
+                      "bandwidthMaxTx",
+                      "bandwidthMaxRx",
+                      "udphopInterval"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "selected",
+                  "global"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "dnss": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "selected": {
+                    "type": "boolean"
+                  },
+                  "dns": {
+                    "type": "object",
+                    "properties": {
+                      "string": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "string"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "selected",
+                  "dns"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "routings": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "selected": {
+                    "type": "boolean"
+                  },
+                  "routing": {
+                    "type": "object",
+                    "properties": {
+                      "string": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "string"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "referenceGroups": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "selected",
+                  "routing",
+                  "referenceGroups"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "groups": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "policy": {
+                    "enum": [
+                      "random",
+                      "fixed",
+                      "min_avg10",
+                      "min_moving_avg",
+                      "min"
+                    ]
+                  },
+                  "policyParams": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "val": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "val"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "nodes": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "subscriptions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "subscription": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "nameFilterRegex": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "matchedCount": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "matchedNodes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "subscription",
+                        "nameFilterRegex",
+                        "matchedCount",
+                        "matchedNodes"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "policy",
+                  "policyParams",
+                  "nodes",
+                  "subscriptions"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "subscriptions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "tag": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "updatedAt": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "tag",
+                  "updatedAt",
+                  "status"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "configs",
+            "dnss",
+            "routings",
+            "groups",
+            "subscriptions"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    "nodePages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "subscriptionId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "response": {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "object",
+                "properties": {
+                  "nodes": {
+                    "type": "object",
+                    "properties": {
+                      "totalCount": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "edges": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "link": {
+                              "type": "string"
+                            },
+                            "address": {
+                              "type": "string"
+                            },
+                            "protocol": {
+                              "type": "string"
+                            },
+                            "tag": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "subscriptionID": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "link",
+                            "address",
+                            "protocol",
+                            "tag",
+                            "subscriptionID"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "pageInfo": {
+                        "type": "object",
+                        "properties": {
+                          "startCursor": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "endCursor": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "hasNextPage": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "startCursor",
+                          "endCursor",
+                          "hasNextPage"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "totalCount",
+                      "edges",
+                      "pageInfo"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "nodes"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "data"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "subscriptionId",
+          "response"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "synthetic",
+    "consistency",
+    "metadata",
+    "nodePages"
+  ],
+  "additionalProperties": false
+}

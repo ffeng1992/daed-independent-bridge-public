@@ -1,0 +1,46 @@
+query SnapshotMetadata {
+  configs { id name selected global {
+      tproxyPort
+      tproxyPortProtect
+      soMarkFromDae
+      soMarkFromDaeSet
+      logLevel
+      tcpCheckUrl
+      tcpCheckHttpMethod
+      udpCheckDns
+      checkInterval
+      checkTolerance
+      lanInterface
+      wanInterface
+      allowInsecure
+      dialMode
+      disableWaitingNetwork
+      enableLocalTcpFastRedirect
+      autoConfigKernelParameter
+      autoConfigFirewallRule
+      sniffingTimeout
+      tlsImplementation
+      utlsImitate
+      tlsFragment
+      tlsFragmentLength
+      tlsFragmentInterval
+      pprofPort
+      mptcp
+      bootstrapResolver
+      fallbackResolver
+      bandwidthMaxTx
+      bandwidthMaxRx
+      udphopInterval
+  } }
+  dnss { id name selected dns { string } }
+  routings { id name selected routing { string } referenceGroups }
+  groups {
+    id name policy policyParams { key val }
+    nodes { id }
+    subscriptions {
+      subscription { id }
+      nameFilterRegex matchedCount matchedNodes { id }
+    }
+  }
+  subscriptions { id tag updatedAt status }
+}

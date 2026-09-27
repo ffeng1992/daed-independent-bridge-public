@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "action"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "action": {
+      "enum": [
+        "apply",
+        "status",
+        "recover",
+        "start",
+        "stop",
+        "reload"
+      ]
+    },
+    "bundleId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "status"
+          }
+        }
+      },
+      "else": {
+        "required": [
+          "bundleId"
+        ]
+      }
+    }
+  ]
+}

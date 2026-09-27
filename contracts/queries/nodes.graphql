@@ -1,0 +1,7 @@
+query NodePage($subscriptionId: ID, $first: Int!, $after: ID) {
+  nodes(subscriptionId: $subscriptionId, first: $first, after: $after) {
+    totalCount
+    edges { id name link address protocol tag subscriptionID }
+    pageInfo { startCursor endCursor hasNextPage }
+  }
+}

@@ -1,0 +1,23 @@
+name: Build source release (no publication)
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Build and verify reproducibility
+        run: |
+          python3 -m scripts.release_build
+          cp out/release/SHA256SUMS /tmp/first-sums
+          python3 -m scripts.release_build
+          cmp /tmp/first-sums out/release/SHA256SUMS
+          (cd out/release && sha256sum -c SHA256SUMS)
+          cat out/release/SHA256SUMS >> "$GITHUB_STEP_SUMMARY"
+      # Deliberately no artifact upload, release creation or publishing token.

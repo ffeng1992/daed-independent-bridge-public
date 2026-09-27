@@ -1,0 +1,10 @@
+[Unit]
+Description=Independent bridge privileged control socket
+[Socket]
+ListenStream=/run/bridge-control/helper.sock
+SocketMode=0660
+SocketUser=root
+SocketGroup=independent-bridge
+DirectoryMode=0710
+[Install]
+WantedBy=sockets.target

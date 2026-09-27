@@ -1,0 +1,166 @@
+{
+  "schemaVersion": 1,
+  "synthetic": true,
+  "consistency": {
+    "stable": true,
+    "transactional": false
+  },
+  "metadata": {
+    "data": {
+      "configs": [
+        {
+          "id": "Y29uZmlnLTE=",
+          "name": "Synthetic",
+          "selected": true,
+          "global": {
+            "tproxyPort": 12345,
+            "tproxyPortProtect": true,
+            "soMarkFromDae": 0,
+            "soMarkFromDaeSet": false,
+            "logLevel": "info",
+            "tcpCheckUrl": [
+              "http://probe.invalid"
+            ],
+            "tcpCheckHttpMethod": "HEAD",
+            "udpCheckDns": [
+              "192.0.2.53:53"
+            ],
+            "checkInterval": "30s",
+            "checkTolerance": "0",
+            "lanInterface": [],
+            "wanInterface": [],
+            "allowInsecure": false,
+            "dialMode": "domain",
+            "disableWaitingNetwork": false,
+            "enableLocalTcpFastRedirect": false,
+            "autoConfigKernelParameter": false,
+            "autoConfigFirewallRule": false,
+            "sniffingTimeout": "30ms",
+            "tlsImplementation": "tls",
+            "utlsImitate": "chrome_auto",
+            "tlsFragment": false,
+            "tlsFragmentLength": "50-100",
+            "tlsFragmentInterval": "10-20",
+            "pprofPort": 0,
+            "mptcp": false,
+            "bootstrapResolver": "192.0.2.53:53",
+            "fallbackResolver": "192.0.2.53:53",
+            "bandwidthMaxTx": "0",
+            "bandwidthMaxRx": "0",
+            "udphopInterval": "30s"
+          }
+        }
+      ],
+      "dnss": [
+        {
+          "id": "ZG5zLTE=",
+          "name": "Synthetic",
+          "selected": true,
+          "dns": {
+            "string": "upstream {\n  lab: \"udp://192.0.2.53:53\"\n}\nrouting {\n request { fallback: lab }\n response { fallback: accept }\n}"
+          }
+        }
+      ],
+      "routings": [
+        {
+          "id": "cm91dGUtMQ==",
+          "name": "Synthetic",
+          "selected": true,
+          "routing": {
+            "string": "fallback: direct"
+          },
+          "referenceGroups": []
+        }
+      ],
+      "groups": [
+        {
+          "id": "Z3JvdXAtMQ==",
+          "name": "synthetic_proxy",
+          "policy": "fixed",
+          "policyParams": [],
+          "nodes": [
+            {
+              "id": "bm9kZS0x"
+            }
+          ],
+          "subscriptions": [
+            {
+              "subscription": {
+                "id": "c3ViLTE="
+              },
+              "nameFilterRegex": null,
+              "matchedCount": 1,
+              "matchedNodes": [
+                {
+                  "id": "bm9kZS0y"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "subscriptions": [
+        {
+          "id": "c3ViLTE=",
+          "tag": null,
+          "updatedAt": "2026-09-26T00:00:00Z",
+          "status": "synthetic"
+        }
+      ]
+    }
+  },
+  "nodePages": [
+    {
+      "subscriptionId": null,
+      "response": {
+        "data": {
+          "nodes": {
+            "totalCount": 1,
+            "edges": [
+              {
+                "id": "bm9kZS0x",
+                "name": "Synthetic only",
+                "link": "ss://YWVzLTEyOC1nY206TTEtU1lOVEhFVElDLVBBU1NXT1JELU9OTFk@192.0.2.1:443#fixture",
+                "address": "192.0.2.1:443",
+                "protocol": "ss",
+                "tag": null,
+                "subscriptionID": null
+              }
+            ],
+            "pageInfo": {
+              "startCursor": "bm9kZS0x",
+              "endCursor": "bm9kZS0x",
+              "hasNextPage": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "subscriptionId": "c3ViLTE=",
+      "response": {
+        "data": {
+          "nodes": {
+            "totalCount": 1,
+            "edges": [
+              {
+                "id": "bm9kZS0y",
+                "name": "Synthetic only",
+                "link": "ss://YWVzLTEyOC1nY206TTEtU1lOVEhFVElDLVBBU1NXT1JELU9OTFk@198.51.100.1:443#fixture",
+                "address": "198.51.100.1:443",
+                "protocol": "ss",
+                "tag": null,
+                "subscriptionID": "c3ViLTE="
+              }
+            ],
+            "pageInfo": {
+              "startCursor": "bm9kZS0y",
+              "endCursor": "bm9kZS0y",
+              "hasNextPage": false
+            }
+          }
+        }
+      }
+    }
+  ]
+}

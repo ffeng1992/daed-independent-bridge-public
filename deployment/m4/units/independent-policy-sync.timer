@@ -1,0 +1,8 @@
+[Unit]
+Description=Observe independent policy DNS changes
+[Timer]
+OnBootSec=90
+OnUnitInactiveSec=120
+AccuracySec=15
+[Install]
+WantedBy=timers.target

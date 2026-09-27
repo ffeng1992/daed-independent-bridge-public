@@ -1,0 +1,8 @@
+[Unit]
+Description=Synchronize policy DNS from verified independent bridge bundle
+After=independent-bridge.service dae-policy-dns.service
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -B /etc/dae-dns-repair/sync_policy_independent.py
+TimeoutStartSec=90
+UMask=0077

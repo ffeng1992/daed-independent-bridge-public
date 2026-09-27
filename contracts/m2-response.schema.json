@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "M2 helper response",
+  "anyOf": [
+    {
+      "$ref": "status.schema.json"
+    },
+    {
+      "type": "object",
+      "required": [
+        "state"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "stopped",
+            "starting",
+            "running",
+            "reloading",
+            "failed",
+            "rollback-needed"
+          ]
+        },
+        "result": {
+          "enum": [
+            "ALREADY_RUNNING",
+            "ALREADY_STOPPED",
+            "ALREADY_APPLIED",
+            "APPLIED",
+            "ROLLED_BACK",
+            "MANUAL_INTERVENTION_REQUIRED"
+          ]
+        },
+        "error": {
+          "type": "string"
+        },
+        "activeBundle": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "observation": {
+          "type": "object"
+        },
+        "systemd": {
+          "type": "object"
+        },
+        "identityVerified": {
+          "type": "boolean"
+        },
+        "configSha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "executableSha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "recoveryMode": {
+          "const": "UNCHANGED"
+        }
+      },
+      "additionalProperties": false
+    }
+  ]
+}

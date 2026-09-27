@@ -1,0 +1,74 @@
+{
+  "files": [
+    {
+      "path": "config/patch.go",
+      "sourceSha256": "a46329dd74cf05bf02db0a6a563b60520b19943f50d227efdda517b401623d78",
+      "targetSha256": "ba80c138d636fb5b1c01ffbb81aaf4ff57ba02f8371f70408df86076b47c3dee"
+    },
+    {
+      "path": "component/outbound/dialer/register.go",
+      "sourceSha256": "59aa07ff1a3bf7c7dd38353091c3e9cdb2510f256e02e327c1fc768ef4e3ca99",
+      "targetSha256": "1cabd9626ac2677d8a2a20a9e0476fda6a6c3f017e6c7d5e9eb1d15df73c0cd0"
+    },
+    {
+      "path": "component/outbound/dialer_selection_policy.go",
+      "sourceSha256": "ceae2728db703aa725a42f570a68496762d232ce0d67396fe1b789e20f9dece2",
+      "targetSha256": "4ff31ead27fe0849cb2b58b55c67e16ed16de2053c4adffa0ad77d85b5544fab"
+    },
+    {
+      "path": "pkg/config_parser/config_parser.go",
+      "sourceSha256": "8fdd968f114db5b64bbf4349487109471ec611777e76585b2677b8812bc306b6",
+      "targetSha256": "b086ea461dd594224111a969cc5049d522faeb0220bfa7d971c94c8ed1e060bd"
+    },
+    {
+      "path": "go.mod",
+      "sourceSha256": "42a2c388678dee0114917ce601157952a9632c4ab7a3e2b5954234762736b48d",
+      "targetSha256": "cf12c31b6523820dc7f69381281a1e6c7df2386c71fb9967becb060335df7115"
+    },
+    {
+      "path": "config/parser.go",
+      "sourceSha256": "eafc3ff9e22c3a821c7391971d4189fc24101f2dca141ee985e559c13345ebfd",
+      "targetSha256": "dd5f0471082b7697c55197b6b944803199f9a942b2a3cefe1c4c34864cf3946a"
+    },
+    {
+      "path": "config/decode.go",
+      "sourceSha256": "f0f54334869f76d5db14ef4ac37f4209fd07e0513ec40020dac624902ca1c327",
+      "targetSha256": "f3e2567d8fa1eac0cd47a37c27f3e4b6c54d72bab5a86c2d6ba13fa08bc070f1"
+    },
+    {
+      "path": "config/marshal.go",
+      "sourceSha256": "e203ef67c8c92cae7c357158d785a040ba3bcc432530d3b49780763a4cc379c5",
+      "targetSha256": "dcc387e55ece17159970ea282300107ac45d73f057fa78f05774e6d2f9f69ac3"
+    }
+  ],
+  "findings": [
+    {
+      "path": "global.check_interval",
+      "change": "Target requires >0; preserve value and reject via official validate, never repair silently."
+    },
+    {
+      "path": "group.check_interval",
+      "change": "Target rejects negative durations; zero retains inheritance."
+    },
+    {
+      "path": "dns.max_cache_size",
+      "change": "0 -> 65536 default. Preserve explicit values; compatibility report emits 0 when source field absent."
+    },
+    {
+      "path": "dns.optimistic_stale_reply_ttl",
+      "change": "New default 30; explicit compatibility value 0 retains previously packed TTL when source field absent."
+    },
+    {
+      "path": "optional sections",
+      "change": "Target decodes omitted sections to apply declared defaults; source skipped them."
+    },
+    {
+      "path": "parser",
+      "change": "Target adds panic recovery; syntax tree grammar requires separate registry verification."
+    },
+    {
+      "path": "global.so_mark_from_dae_set",
+      "change": "Internal GraphQL/parser presence metadata, explicitly excluded by SectionParser and Marshal; never a DAE text key. It controls whether so_mark_from_dae is present, including explicit zero."
+    }
+  ]
+}

@@ -1,0 +1,106 @@
+{
+  "checkedAt": "2026-09-26",
+  "method": "GitHub API raw file read; files retained outside repository only",
+  "sources": [
+    {
+      "url": "https://github.com/daeuniverse/dae-wing/blob/dc503088945812c11235b35362d2bfa1a4c3bdf0/cmd/export.go",
+      "sha256": "d72caa2294c0bb71d75f538c675fc69304698b90ac7f35b550b6906c2a5a5c4e"
+    },
+    {
+      "url": "https://github.com/daeuniverse/dae-wing/blob/dc503088945812c11235b35362d2bfa1a4c3bdf0/cmd/run.go",
+      "sha256": "40511c13085d052870c5688199287ee5ae8285e8a61e6be628cb7fe6315d8566"
+    },
+    {
+      "url": "https://github.com/daeuniverse/dae-wing/blob/dc503088945812c11235b35362d2bfa1a4c3bdf0/dae/dae.go",
+      "sha256": "4c5af6b01e5650b6916821988202a1e13fde53fb5962488086883c9fc94ab233"
+    },
+    {
+      "url": "https://github.com/daeuniverse/dae-wing/blob/dc503088945812c11235b35362d2bfa1a4c3bdf0/dae/run.go",
+      "sha256": "748a95abac2a3dda0741da10d8278cd1dd8e792061d3a0f02f0fab08dcb6e233"
+    },
+    {
+      "url": "https://github.com/daeuniverse/dae-wing/blob/dc503088945812c11235b35362d2bfa1a4c3bdf0/db/config.go",
+      "sha256": "032426c2de8d07e5ff7d5280fddeb02921e235f3f11b30d4a4d0c929aecde1c1"
+    },
+    {
+      "url": "https://github.com/daeuniverse/dae-wing/blob/dc503088945812c11235b35362d2bfa1a4c3bdf0/db/group.go",
+      "sha256": "99a5dde46628ff9af071eae79d55aff4b15f7b2f94e2bc856545b004717a6db0"
+    },
+    {
+      "url": "https://github.com/daeuniverse/dae-wing/blob/dc503088945812c11235b35362d2bfa1a4c3bdf0/graphql/query.go",
+      "sha256": "e40cb3d1ec7a107ec80b300c4eb52a86ff2a37368a0d7a8036f2b1b5a608793f"
+    },
+    {
+      "url": "https://github.com/daeuniverse/dae-wing/blob/dc503088945812c11235b35362d2bfa1a4c3bdf0/graphql/root_schema.go",
+      "sha256": "e9cf4836080bf087a0ddba58ed9596abc6e020e437c828d5f718932906b3bef0"
+    },
+    {
+      "url": "https://github.com/daeuniverse/dae-wing/blob/dc503088945812c11235b35362d2bfa1a4c3bdf0/graphql/service/config/global/schema.go",
+      "sha256": "59e3eaee0ef6afd910b2d960c89f11b6d5fa7a4d5112de0f51cb08898cf7c5e1"
+    },
+    {
+      "url": "https://github.com/daeuniverse/dae-wing/blob/dc503088945812c11235b35362d2bfa1a4c3bdf0/graphql/service/config/schema.go",
+      "sha256": "3d0e257ed07fae99501c871980ff31409dfd4e16d33dc50fa788d09bd1f47200"
+    },
+    {
+      "url": "https://github.com/daeuniverse/dae-wing/blob/dc503088945812c11235b35362d2bfa1a4c3bdf0/graphql/service/dns/resolver.go",
+      "sha256": "5645df5bad1fef4b23ec14a2a66404cb69a246d72c66d7adfc74838ab61f55ae"
+    },
+    {
+      "url": "https://github.com/daeuniverse/dae-wing/blob/dc503088945812c11235b35362d2bfa1a4c3bdf0/graphql/service/dns/schema.go",
+      "sha256": "ff8ab53297bc145f414da16e1d09684dc4d1312a1ef8fdd15de2b57fd50476da"
+    },
+    {
+      "url": "https://github.com/daeuniverse/dae-wing/blob/dc503088945812c11235b35362d2bfa1a4c3bdf0/graphql/service/group/resolver.go",
+      "sha256": "320f1f7402583e0ba938caa42ba759dfebda9e81840b202a80631649541a0527"
+    },
+    {
+      "url": "https://github.com/daeuniverse/dae-wing/blob/dc503088945812c11235b35362d2bfa1a4c3bdf0/graphql/service/group/schema.go",
+      "sha256": "e1a4cb29581d59eaf9d9e79a85a57993c42f6f8fc2a3c9e349637a8329606ef4"
+    },
+    {
+      "url": "https://github.com/daeuniverse/dae-wing/blob/dc503088945812c11235b35362d2bfa1a4c3bdf0/graphql/service/node/connection_resolver.go",
+      "sha256": "fba3abaa7ba7f14588584df5bdf707cc5d8bcd86606144b9c9e8f31046f7677c"
+    },
+    {
+      "url": "https://github.com/daeuniverse/dae-wing/blob/dc503088945812c11235b35362d2bfa1a4c3bdf0/graphql/service/node/schema.go",
+      "sha256": "00484e6a38c9de8dd7cd1b2c4ab179b0ec70cba4dbae54276bbfa2913308d56f"
+    },
+    {
+      "url": "https://github.com/daeuniverse/dae-wing/blob/dc503088945812c11235b35362d2bfa1a4c3bdf0/graphql/service/routing/resolver.go",
+      "sha256": "16c4967b4e8fd20f05e045f437e71e49dd75a756a1bf2aaee3b396355d43eeef"
+    },
+    {
+      "url": "https://github.com/daeuniverse/dae-wing/blob/dc503088945812c11235b35362d2bfa1a4c3bdf0/graphql/service/routing/schema.go",
+      "sha256": "f4d1d8c1813c568bb2cbeee7db9f44005cd2765d5e4c74955ec1381637897042"
+    },
+    {
+      "url": "https://github.com/daeuniverse/dae-wing/blob/dc503088945812c11235b35362d2bfa1a4c3bdf0/graphql/service/schema.go",
+      "sha256": "6a2b8d486d29f611d0334517601f8c4f2f4fa5426b756f3a56b8952c726c3974"
+    },
+    {
+      "url": "https://github.com/daeuniverse/dae-wing/blob/dc503088945812c11235b35362d2bfa1a4c3bdf0/graphql/service/subscription/schema.go",
+      "sha256": "8c62bec22b2f8d07151c7bbe4f51e2b10fe34b87ed619854171c0ad73bea4b2d"
+    },
+    {
+      "url": "https://github.com/daeuniverse/dae/blob/v2.1.1/cmd/run.go",
+      "sha256": "f8cb32074e53e5b0544c8b0d8b8319ffbb850bc1f8b10d8988380b212f60fba8"
+    },
+    {
+      "url": "https://github.com/daeuniverse/dae/blob/v2.1.1/cmd/validate.go",
+      "sha256": "a59981f0f31fcd84fe7adb32698c8a7e1daf4eb2f619dc0c12b8e7e86ba1af0f"
+    },
+    {
+      "url": "https://github.com/daeuniverse/dae/blob/v2.1.1/example.dae",
+      "sha256": "d2e6d44ce954cac35650b3ef3f916671e612c2318498d92618347acfd48ae1e4"
+    },
+    {
+      "url": "https://github.com/daeuniverse/dae/blob/85a1fc3c06e3765d143c868ba97ecd0be2aab4ea/config/config.go",
+      "sha256": "058dac3c41779973108d79acb33eb7fe57a3d3f060da5b415e9c9fcb5995007b"
+    },
+    {
+      "url": "https://github.com/daeuniverse/dae/blob/dbae2e82d3ed5324e1648548720f8bbc8cde3882/config/config.go",
+      "sha256": "07ec201560cb37556e7789eb3de4e282c88d3fd92b863d1f41fc361d0f7f1a67"
+    }
+  ]
+}

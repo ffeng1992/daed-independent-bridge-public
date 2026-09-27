@@ -1,0 +1,17 @@
+[Unit]
+Description=Official daed management API only
+After=network-online.target
+[Service]
+User=bridge-daed
+Group=bridge-daed
+ExecStart=/opt/bridge-official/daed run --api-only --config /var/lib/bridge-daed --listen 127.0.0.1:2023
+Restart=on-failure
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+ReadWritePaths=/var/lib/bridge-daed
+[Install]
+WantedBy=multi-user.target

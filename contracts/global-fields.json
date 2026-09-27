@@ -1,0 +1,191 @@
+{
+  "schemaVersion": 1,
+  "fields": [
+    {
+      "graphql": "tproxyPort",
+      "dae": "tproxy_port",
+      "jsonType": "integer",
+      "handling": "explicit-mapping-review-required"
+    },
+    {
+      "graphql": "tproxyPortProtect",
+      "dae": "tproxy_port_protect",
+      "jsonType": "boolean",
+      "handling": "explicit-mapping-review-required"
+    },
+    {
+      "graphql": "soMarkFromDae",
+      "dae": "so_mark_from_dae",
+      "jsonType": "integer",
+      "handling": "explicit-mapping-review-required"
+    },
+    {
+      "graphql": "soMarkFromDaeSet",
+      "dae": "so_mark_from_dae_set",
+      "jsonType": "boolean",
+      "handling": "explicit-mark-metadata"
+    },
+    {
+      "graphql": "logLevel",
+      "dae": "log_level",
+      "jsonType": "string",
+      "handling": "explicit-mapping-review-required"
+    },
+    {
+      "graphql": "tcpCheckUrl",
+      "dae": "tcp_check_url",
+      "jsonType": "array",
+      "handling": "explicit-mapping-review-required"
+    },
+    {
+      "graphql": "tcpCheckHttpMethod",
+      "dae": "tcp_check_http_method",
+      "jsonType": "string",
+      "handling": "explicit-mapping-review-required"
+    },
+    {
+      "graphql": "udpCheckDns",
+      "dae": "udp_check_dns",
+      "jsonType": "array",
+      "handling": "explicit-mapping-review-required"
+    },
+    {
+      "graphql": "checkInterval",
+      "dae": "check_interval",
+      "jsonType": "string",
+      "handling": "explicit-mapping-review-required"
+    },
+    {
+      "graphql": "checkTolerance",
+      "dae": "check_tolerance",
+      "jsonType": "string",
+      "handling": "explicit-mapping-review-required"
+    },
+    {
+      "graphql": "lanInterface",
+      "dae": "lan_interface",
+      "jsonType": "array",
+      "handling": "explicit-mapping-review-required"
+    },
+    {
+      "graphql": "wanInterface",
+      "dae": "wan_interface",
+      "jsonType": "array",
+      "handling": "explicit-mapping-review-required"
+    },
+    {
+      "graphql": "allowInsecure",
+      "dae": "allow_insecure",
+      "jsonType": "boolean",
+      "handling": "explicit-mapping-review-required"
+    },
+    {
+      "graphql": "dialMode",
+      "dae": "dial_mode",
+      "jsonType": "string",
+      "handling": "explicit-mapping-review-required"
+    },
+    {
+      "graphql": "disableWaitingNetwork",
+      "dae": "disable_waiting_network",
+      "jsonType": "boolean",
+      "handling": "explicit-mapping-review-required"
+    },
+    {
+      "graphql": "enableLocalTcpFastRedirect",
+      "dae": "enable_local_tcp_fast_redirect",
+      "jsonType": "boolean",
+      "handling": "explicit-mapping-review-required"
+    },
+    {
+      "graphql": "autoConfigKernelParameter",
+      "dae": "auto_config_kernel_parameter",
+      "jsonType": "boolean",
+      "handling": "explicit-mapping-review-required"
+    },
+    {
+      "graphql": "autoConfigFirewallRule",
+      "dae": "auto_config_firewall_rule",
+      "jsonType": "boolean",
+      "handling": "explicit-mapping-review-required"
+    },
+    {
+      "graphql": "sniffingTimeout",
+      "dae": "sniffing_timeout",
+      "jsonType": "string",
+      "handling": "explicit-mapping-review-required"
+    },
+    {
+      "graphql": "tlsImplementation",
+      "dae": "tls_implementation",
+      "jsonType": "string",
+      "handling": "explicit-mapping-review-required"
+    },
+    {
+      "graphql": "utlsImitate",
+      "dae": "utls_imitate",
+      "jsonType": "string",
+      "handling": "explicit-mapping-review-required"
+    },
+    {
+      "graphql": "tlsFragment",
+      "dae": "tls_fragment",
+      "jsonType": "boolean",
+      "handling": "explicit-mapping-review-required"
+    },
+    {
+      "graphql": "tlsFragmentLength",
+      "dae": "tls_fragment_length",
+      "jsonType": "string",
+      "handling": "explicit-mapping-review-required"
+    },
+    {
+      "graphql": "tlsFragmentInterval",
+      "dae": "tls_fragment_interval",
+      "jsonType": "string",
+      "handling": "explicit-mapping-review-required"
+    },
+    {
+      "graphql": "pprofPort",
+      "dae": "pprof_port",
+      "jsonType": "integer",
+      "handling": "explicit-mapping-review-required"
+    },
+    {
+      "graphql": "mptcp",
+      "dae": "mptcp",
+      "jsonType": "boolean",
+      "handling": "explicit-mapping-review-required"
+    },
+    {
+      "graphql": "bootstrapResolver",
+      "dae": "bootstrap_resolver",
+      "jsonType": "string",
+      "handling": "explicit-mapping-review-required"
+    },
+    {
+      "graphql": "fallbackResolver",
+      "dae": "fallback_resolver",
+      "jsonType": "string",
+      "handling": "explicit-mapping-review-required"
+    },
+    {
+      "graphql": "bandwidthMaxTx",
+      "dae": "bandwidth_max_tx",
+      "jsonType": "string",
+      "handling": "explicit-mapping-review-required"
+    },
+    {
+      "graphql": "bandwidthMaxRx",
+      "dae": "bandwidth_max_rx",
+      "jsonType": "string",
+      "handling": "explicit-mapping-review-required"
+    },
+    {
+      "graphql": "udphopInterval",
+      "dae": "udphop_interval",
+      "jsonType": "string",
+      "handling": "explicit-mapping-review-required"
+    }
+  ]
+}

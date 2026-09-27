@@ -1,0 +1,26 @@
+[
+  {
+    "file": "unknown-protocol.json",
+    "code": "UNSUPPORTED_PROTOCOL"
+  },
+  {
+    "file": "unknown-global.json",
+    "code": "UNSUPPORTED_FIELD"
+  },
+  {
+    "file": "missing-group.json",
+    "code": "REFERENCE_MISSING"
+  },
+  {
+    "file": "unsupported-fixed.json",
+    "code": "UNSUPPORTED_POLICY"
+  },
+  {
+    "file": "empty-resolver.json",
+    "code": "EXPLICIT_RESOLVER_REQUIRED"
+  },
+  {
+    "file": "include-injection.json",
+    "code": "UNSUPPORTED_MATCH"
+  }
+]

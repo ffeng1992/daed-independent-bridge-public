@@ -1,0 +1,8 @@
+{
+  "lanAddress": "192.0.2.1",
+  "lanNetwork": "192.0.2.0/24",
+  "lanInterface": "lan0",
+  "upstream": "192.0.2.53:53",
+  "dnsName": "health.example.invalid",
+  "webAddress": "127.0.0.1"
+}

@@ -1,0 +1,316 @@
+{
+  "source": {
+    "commit": "8de5a31bdbe1",
+    "entries": [
+      {
+        "path": "dialer/anytls/anytls.go",
+        "protocolLabels": [
+          "anytls"
+        ],
+        "schemes": [
+          "anytls"
+        ],
+        "sha256": "815b8c4a207334a63df26e238b35679a6e5040dc45ba8b4036bef83e7fa19453"
+      },
+      {
+        "path": "dialer/http/http.go",
+        "protocolLabels": [],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "sha256": "522d30b1d3009b30da921cb08c54de41b0164d5cdfca626f8667414e34c81b4a"
+      },
+      {
+        "path": "dialer/hysteria2/hysteria2.go",
+        "protocolLabels": [
+          "hysteria2"
+        ],
+        "schemes": [
+          "hysteria2",
+          "hy2"
+        ],
+        "sha256": "476b5034a2a4f12690986d0ab6c4ef78776ac266122fcbe2736b3721dc5de201"
+      },
+      {
+        "path": "dialer/juicity/juicity.go",
+        "protocolLabels": [
+          "juicity"
+        ],
+        "schemes": [
+          "juicity"
+        ],
+        "sha256": "8a1c114fbefc9038c1a23f32f7dcfee955fb047f4fc2cbb8f720e5df7cd864f7"
+      },
+      {
+        "path": "dialer/naive/naive.go",
+        "protocolLabels": [],
+        "schemes": [
+          "naive+https",
+          "naive+quic"
+        ],
+        "sha256": "c8812143ba820f2abb3330aec2593c9a67e13a3560307a030f2ac4e386f81fff"
+      },
+      {
+        "path": "dialer/shadowsocks/shadowsocks.go",
+        "protocolLabels": [
+          "shadowsocks"
+        ],
+        "schemes": [
+          "shadowsocks",
+          "ss"
+        ],
+        "sha256": "1c8a06399e6be497bffe7408e6b2a2a42715ce42a5b12f4b2a48f2fbd5084b06"
+      },
+      {
+        "path": "dialer/shadowsocksr/shadowsocksr.go",
+        "protocolLabels": [
+          "shadowsocksr"
+        ],
+        "schemes": [
+          "shadowsocksr",
+          "ssr"
+        ],
+        "sha256": "dd79eafe176c38a03cafb000d1293077aabe881ccdff098492a49c011b2e0578"
+      },
+      {
+        "path": "dialer/socks/socks.go",
+        "protocolLabels": [],
+        "schemes": [
+          "socks",
+          "socks4",
+          "socks4a",
+          "socks5"
+        ],
+        "sha256": "06c7e89f3ffe9f16db9e6cd9f8c8281e42dd14ced9a3467f2780d2d20c50957e"
+      },
+      {
+        "path": "dialer/trojan/trojan.go",
+        "protocolLabels": [
+          "trojan"
+        ],
+        "schemes": [
+          "trojan",
+          "trojan-go"
+        ],
+        "sha256": "52e370238cce2bd8fbd59787f5d05dbab40a4cb7d2457777a98b27fabc7ffb51"
+      },
+      {
+        "path": "dialer/tuic/tuic.go",
+        "protocolLabels": [
+          "tuic"
+        ],
+        "schemes": [
+          "tuic"
+        ],
+        "sha256": "cd98b550f13c72143e4a4718a67ff11f9decd10ed97afb170991df930a0c608a"
+      },
+      {
+        "path": "dialer/v2ray/v2ray.go",
+        "protocolLabels": [
+          "vless"
+        ],
+        "schemes": [
+          "vmess",
+          "vless"
+        ],
+        "sha256": "1d5bb0c4e6f2e411e022a01fedf6790bd9f18606a86411e0f2e2be1d40cea4e8"
+      },
+      {
+        "path": "transport/shadowtls/shadowtls.go",
+        "protocolLabels": [
+          "shadow-tls"
+        ],
+        "schemes": [
+          "shadow-tls",
+          "shadowtls"
+        ],
+        "sha256": "5e293d552281337af7654d2e9a434679ed64d7bb2fc6b9114cd71d1129d4f80c"
+      },
+      {
+        "path": "transport/simpleobfs/dialer.go",
+        "protocolLabels": [],
+        "schemes": [
+          "simpleobfs"
+        ],
+        "sha256": "07ad37062126cb8a2a28ace390d3cf8536280bf1e70a4bf5619c31999d0083ba"
+      },
+      {
+        "path": "transport/tls/dialer.go",
+        "protocolLabels": [],
+        "schemes": [
+          "tls",
+          "utls"
+        ],
+        "sha256": "1508a27b057aa096b55ef44a5ddb09a3e05a49cbf0d73eab92e912db88e341b9"
+      },
+      {
+        "path": "transport/ws/dialer.go",
+        "protocolLabels": [],
+        "schemes": [
+          "ws",
+          "wss"
+        ],
+        "sha256": "cd9c9ef1b9703508432e991e86c4e309292a31ac866676b4e4d0eda86413715e"
+      }
+    ],
+    "repository": "olicesx/outbound"
+  },
+  "target": {
+    "commit": "cc86ced2e683",
+    "entries": [
+      {
+        "path": "dialer/anytls/anytls.go",
+        "protocolLabels": [
+          "anytls"
+        ],
+        "schemes": [
+          "anytls"
+        ],
+        "sha256": "815b8c4a207334a63df26e238b35679a6e5040dc45ba8b4036bef83e7fa19453"
+      },
+      {
+        "path": "dialer/http/http.go",
+        "protocolLabels": [],
+        "schemes": [
+          "http",
+          "https"
+        ],
+        "sha256": "8f6a6db37bcddc129bb94f86f875a836caa878b91df95b1b25b9657cfb3e40fb"
+      },
+      {
+        "path": "dialer/hysteria2/hysteria2.go",
+        "protocolLabels": [
+          "hysteria2"
+        ],
+        "schemes": [
+          "hysteria2",
+          "hy2"
+        ],
+        "sha256": "84b1b741ebebd97d6c390d62530eda7b0c98bcd2a05b4ab5e72e8e6bc1597c43"
+      },
+      {
+        "path": "dialer/juicity/juicity.go",
+        "protocolLabels": [
+          "juicity"
+        ],
+        "schemes": [
+          "juicity"
+        ],
+        "sha256": "66bfb84f7ce74b11d7fc9e91734e60571d4fbc30fa01be8038ea62c78f0b2896"
+      },
+      {
+        "path": "dialer/naive/naive.go",
+        "protocolLabels": [],
+        "schemes": [
+          "naive+https",
+          "naive+quic"
+        ],
+        "sha256": "63cc0c6f19d26e3791e4c79a413c64b1d649f53fc0fd6bf700850be0d5f7c736"
+      },
+      {
+        "path": "dialer/shadowsocks/shadowsocks.go",
+        "protocolLabels": [
+          "shadowsocks"
+        ],
+        "schemes": [
+          "shadowsocks",
+          "ss"
+        ],
+        "sha256": "8c3388cf9076bb6d432121e83d17827b5474db8105e7b5fe81a9d3c9d5c75f58"
+      },
+      {
+        "path": "dialer/shadowsocksr/shadowsocksr.go",
+        "protocolLabels": [
+          "shadowsocksr"
+        ],
+        "schemes": [
+          "shadowsocksr",
+          "ssr"
+        ],
+        "sha256": "9f6e172bb9333e70298e5d0488df02e19863b9309247667328dc97a3c8c4dd5a"
+      },
+      {
+        "path": "dialer/socks/socks.go",
+        "protocolLabels": [],
+        "schemes": [
+          "socks",
+          "socks4",
+          "socks4a",
+          "socks5"
+        ],
+        "sha256": "06c7e89f3ffe9f16db9e6cd9f8c8281e42dd14ced9a3467f2780d2d20c50957e"
+      },
+      {
+        "path": "dialer/trojan/trojan.go",
+        "protocolLabels": [
+          "trojan"
+        ],
+        "schemes": [
+          "trojan",
+          "trojan-go"
+        ],
+        "sha256": "db9b245a7b83c31ea0eecec542c955818cba074d4572d6df8b8618ea9a7e3de3"
+      },
+      {
+        "path": "dialer/tuic/tuic.go",
+        "protocolLabels": [
+          "tuic"
+        ],
+        "schemes": [
+          "tuic"
+        ],
+        "sha256": "3136a8ec41e8fa9d67c2dc90fae41c663abcafdd6c9da47b353355ada725cd8e"
+      },
+      {
+        "path": "dialer/v2ray/v2ray.go",
+        "protocolLabels": [
+          "vless"
+        ],
+        "schemes": [
+          "vmess",
+          "vless"
+        ],
+        "sha256": "23e0281690304d7f6dbee9503bf6faf7bb38591c0096348e5a0b797fe4107987"
+      },
+      {
+        "path": "transport/shadowtls/shadowtls.go",
+        "protocolLabels": [
+          "shadow-tls"
+        ],
+        "schemes": [
+          "shadow-tls",
+          "shadowtls"
+        ],
+        "sha256": "5e293d552281337af7654d2e9a434679ed64d7bb2fc6b9114cd71d1129d4f80c"
+      },
+      {
+        "path": "transport/simpleobfs/dialer.go",
+        "protocolLabels": [],
+        "schemes": [
+          "simpleobfs"
+        ],
+        "sha256": "07ad37062126cb8a2a28ace390d3cf8536280bf1e70a4bf5619c31999d0083ba"
+      },
+      {
+        "path": "transport/tls/dialer.go",
+        "protocolLabels": [],
+        "schemes": [
+          "tls",
+          "utls"
+        ],
+        "sha256": "1508a27b057aa096b55ef44a5ddb09a3e05a49cbf0d73eab92e912db88e341b9"
+      },
+      {
+        "path": "transport/ws/dialer.go",
+        "protocolLabels": [],
+        "schemes": [
+          "ws",
+          "wss"
+        ],
+        "sha256": "cd9c9ef1b9703508432e991e86c4e309292a31ac866676b4e4d0eda86413715e"
+      }
+    ],
+    "repository": "olicesx/outbound"
+  }
+}

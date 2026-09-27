@@ -1,0 +1,67 @@
+name: Release packaging checks
+on:
+  push:
+    branches: [main, codex/release-packaging-v1]
+  pull_request:
+    paths:
+      - '*.sh'
+      - 'scripts/release_*.py'
+      - 'scripts/m4_install.py'
+      - 'tests/packaging/**'
+      - 'deployment/release/**'
+      - '.github/workflows/packaging.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  packaging:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        optimize: ['0', '1']
+    env:
+      PYTHONOPTIMIZE: ${{ matrix.optimize }}
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Shell syntax and lifecycle checks
+        run: |
+          for script in install.sh upgrade.sh uninstall.sh health-check.sh; do sh -n "$script"; done
+          python3 -m unittest tests.packaging.test_lifecycle tests.packaging.test_dns tests.m4.test_install_transaction tests.m4.test_package tests.m4.test_install_payload tests.packaging.test_export -v
+          git diff --exit-code
+      - name: Scope of evidence
+        if: always()
+        run: |
+          echo 'Packaging unit checks only. Clean Debian lifecycle acceptance is not implied. No Release or review artifact is published.' >> "$GITHUB_STEP_SUMMARY"
+  clean-debian:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Disposable VM tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-system-x86 qemu-utils cloud-image-utils
+          if test -e /dev/kvm; then sudo chmod 0666 /dev/kvm; fi
+      - name: Clean Debian installation lifecycle only
+        run: python3 -m scripts.packaging_vm
+      - name: Text-only result
+        if: always()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          from scripts.redact import redact
+          root=Path('out/packaging-evidence')
+          for p in sorted(root.glob('*.log')):
+              print(p.name+'\n'+redact(p.read_text(errors='replace')[-14000:]))
+          result=root/'packaging-result.json'
+          if result.exists():
+              text=redact(result.read_text())
+              print(text)
+              with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:f.write('```json\n'+text+'\n```\n')
+          PY

@@ -1,0 +1,9 @@
+[Unit]
+Description=Refresh verified independent DAE DNS backend state
+[Timer]
+OnBootSec=10
+OnUnitInactiveSec=5
+AccuracySec=1
+Unit=independent-dns-sync.service
+[Install]
+WantedBy=timers.target

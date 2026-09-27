@@ -1,0 +1,3 @@
+query GlobalCapabilities {
+  __type(name: "Global") { fields { name } }
+}

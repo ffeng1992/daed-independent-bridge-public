@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 1,
+  "scope": "M0-design-pin-not-runtime-acceptance",
+  "components": {
+    "daed": {
+      "repository": "https://github.com/daeuniverse/daed",
+      "version": "v2.1.1",
+      "commit": "b3043aa7ce07c774c65e546112aa2c7a1c12edb5",
+      "release_url": "https://github.com/daeuniverse/daed/releases/tag/v2.1.1",
+      "platform": "linux-x86_64",
+      "asset": "daed-linux-x86_64.zip",
+      "url": "https://github.com/daeuniverse/daed/releases/download/v2.1.1/daed-linux-x86_64.zip",
+      "sha256": "aa36b9df5558d47ec0d488f98b92b934c49c08b7f87575061b76498383b3bff1",
+      "verification": "downloaded-and-sha256-matched-github-release-digest",
+      "verified_at": "2026-09-26",
+      "archive_members": [
+        {
+          "path": "daed-linux-x86_64/daed.service",
+          "size": 405,
+          "sha256": "4f4a9c43f30bd12890bd725ae46877aadbc8d32331c4711db8779a06c214508f"
+        },
+        {
+          "path": "daed-linux-x86_64/geoip.dat",
+          "size": 16907278,
+          "sha256": "f3370cf391831bb01e1e662df88596164d136e7d9f81a91c00bae26587e02d72"
+        },
+        {
+          "path": "daed-linux-x86_64/geosite.dat",
+          "size": 11097262,
+          "sha256": "a25739e5a2bc800dadfad074c33c15b00a46d04f9b7399668bc418a9d5c88a0b"
+        },
+        {
+          "path": "daed-linux-x86_64/daed-linux-x86_64",
+          "size": 57995426,
+          "sha256": "49e3d2e55b16f32751252d2d6b4973c2f6c8de14d37229654e5f46a153d42a0a"
+        },
+        {
+          "path": "daed-linux-x86_64/daed.desktop",
+          "size": 384,
+          "sha256": "ac144cdcfac06481b1257459a3e65ae9e0bd1b7333b30ba44ce2cd0b5a8f15bc"
+        },
+        {
+          "path": "daed-linux-x86_64/icons/16x16.png",
+          "size": 815,
+          "sha256": "e9a2160ad3e9fb4025f7e2a9c727d88a3515b66d7b58c17311e3129da9b35aaf"
+        },
+        {
+          "path": "daed-linux-x86_64/icons/1024x1024.png",
+          "size": 910407,
+          "sha256": "4ed0c6cf3bae36516968597da7df941cf7a1f3a52b0af2c9de0579b1ff56f5d3"
+        },
+        {
+          "path": "daed-linux-x86_64/icons/256x256.png",
+          "size": 84569,
+          "sha256": "2661e29742c45b459567435eccd343779ecb1bc436265b1ecb79fa30dff45b89"
+        },
+        {
+          "path": "daed-linux-x86_64/icons/128x128.png",
+          "size": 26060,
+          "sha256": "025ae4acfcb4bdebb9c774993529cb68f331ce83f9ed6355ec7d283cc8ae7666"
+        },
+        {
+          "path": "daed-linux-x86_64/icons/48x48.png",
+          "size": 4990,
+          "sha256": "fc406af3cd58cb75c3730155aa282173b580d18e7987914c27178d2be3735ed7"
+        },
+        {
+          "path": "daed-linux-x86_64/icons/24x24.png",
+          "size": 1606,
+          "sha256": "97a13d0f8b077d298c70b59597c79a64c6b63c0fe452da104a34f0955d451acd"
+        },
+        {
+          "path": "daed-linux-x86_64/icons/32x32.png",
+          "size": 2513,
+          "sha256": "4bcaaa7aa9fef67bb91d90dee2985558d2ef8e83f5df18dce22a6e96ad96b210"
+        },
+        {
+          "path": "daed-linux-x86_64/icons/512x512.png",
+          "size": 280779,
+          "sha256": "dce7385e70b47c508cb144fd6a89e434bcec609d520f86d2c1de50ef0895379c"
+        },
+        {
+          "path": "daed-linux-x86_64/icons/64x64.png",
+          "size": 8101,
+          "sha256": "02748984075630fc4c545ee0d38560357d30903a63ef39e9a66e1a25ae50a827"
+        }
+      ],
+      "wing_commit": "dc503088945812c11235b35362d2bfa1a4c3bdf0",
+      "embedded_dae_commit": "85a1fc3c06e3765d143c868ba97ecd0be2aab4ea"
+    },
+    "dae": {
+      "repository": "https://github.com/daeuniverse/dae",
+      "version": "v2.1.1",
+      "commit": "dbae2e82d3ed5324e1648548720f8bbc8cde3882",
+      "release_url": "https://github.com/daeuniverse/dae/releases/tag/v2.1.1",
+      "platform": "linux-x86_64",
+      "asset": "dae-linux-x86_64.zip",
+      "url": "https://github.com/daeuniverse/dae/releases/download/v2.1.1/dae-linux-x86_64.zip",
+      "sha256": "1ca3c423901298d0b341ae2fa02d5a0eca67c254e7f2b6ce94af8328019abb43",
+      "verification": "downloaded-and-sha256-matched-github-release-digest",
+      "verified_at": "2026-09-26",
+      "archive_members": [
+        {
+          "path": "empty.dae",
+          "size": 20,
+          "sha256": "8c3b3e962bc1288394e54122e5da8d4d54994d17af2fd290331c464dc6b75c86"
+        },
+        {
+          "path": "dae.service",
+          "size": 1969,
+          "sha256": "45fb6024d7c3bd4836086f1573536b311b9a7dff0c539ac5c8aefec49c84fabb"
+        },
+        {
+          "path": "example.dae",
+          "size": 18838,
+          "sha256": "d2e6d44ce954cac35650b3ef3f916671e612c2318498d92618347acfd48ae1e4"
+        },
+        {
+          "path": "geoip.dat",
+          "size": 23330258,
+          "sha256": "1cba1f0982cf62502fa079c66047c3d0c608196da5b3305671e68f60e917a482"
+        },
+        {
+          "path": "geosite.dat",
+          "size": 2288716,
+          "sha256": "35ed26a24cafa1256bd7261414224b7bcef5c944cea7760e172b030a8b266450"
+        },
+        {
+          "path": "dae-linux-x86_64",
+          "size": 35483810,
+          "sha256": "a217bf5edf5a5cac371e086af952b5c676e6ecaf8d7b07ba491916b656b66122"
+        }
+      ]
+    }
+  }
+}

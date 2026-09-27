@@ -1,0 +1,12 @@
+[Unit]
+Description=Fixed-service independent bridge broker/helper
+[Service]
+ExecStart=/usr/bin/python3 -I /usr/local/bin/bridge-broker
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateNetwork=yes
+RestrictAddressFamilies=AF_UNIX
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_CHOWN CAP_SYS_PTRACE
+ReadWritePaths=/var/lib/daed-independent-bridge

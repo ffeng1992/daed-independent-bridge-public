@@ -118,11 +118,28 @@ def wait_for_dataplane():
         time.sleep(1)
 
 
+def wait_for_management():
+    # Type=simple can report active while the Web verifies the installed manifest.
+    # A slow clean VM must not be diagnosed as broken before its listener exists.
+    import ssl
+    import urllib.request
+    from scripts.release_setup import wait
+    config=json.loads((CFG/'web.json').read_text())
+    context=ssl.create_default_context(cafile=str(CFG/'tls.crt'))
+    opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),urllib.request.HTTPSHandler(context=context))
+    def ready():
+        with opener.open(config['origin']+'/api/challenge',timeout=5) as response:
+            result=json.load(response)
+        return type(result.get('csrf')) is str and bool(result['csrf'])
+    wait(ready,seconds=90)
+
+
 def start_management():
     ctl('daemon-reload')
     units=(*DNS,'daed-api.service','daed-web.service','bridge-helper.socket','independent-bridge.service')
     ctl('enable',*units)
     ctl('start',*units)
+    wait_for_management()
 
 
 def connect_daed():
@@ -157,6 +174,7 @@ def start():
     ctl('enable', *CORE, *DNS, *TIMERS)
     ctl('start', *DNS)
     ctl('start', *CORE)
+    wait_for_management()
     wait_for_dataplane()
     ctl('start', *TIMERS)
 

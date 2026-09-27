@@ -54,8 +54,9 @@ class OnboardingTests(unittest.TestCase):
             self.assertFalse((Path(d)/'initial-admin.json').exists())
 
     def test_pending_install_starts_only_management(self):
-        with patch.object(lifecycle,'ctl') as ctl:
+        with patch.object(lifecycle,'ctl') as ctl,patch.object(lifecycle,'wait_for_management') as wait:
             lifecycle.start_management()
+            wait.assert_called_once()
         for call in ctl.call_args_list:
             for forbidden in ('dae.service','bridge-attestor.service',*lifecycle.TIMERS):
                 self.assertNotIn(forbidden,call.args)
@@ -72,3 +73,7 @@ class OnboardingTests(unittest.TestCase):
         self.assertIn('CapabilityBoundingSet=\n',unit)
         self.assertIn('User=bridge-daed',unit)
         self.assertIn('--api-only',unit)
+
+    def test_management_readiness_failure_is_not_success(self):
+        with patch.object(lifecycle,'ctl'),patch.object(lifecycle,'wait_for_management',side_effect=RuntimeError('SETUP_TIMEOUT')):
+            with self.assertRaisesRegex(RuntimeError,'SETUP_TIMEOUT'):lifecycle.start_management()

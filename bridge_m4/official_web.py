@@ -20,6 +20,9 @@ http {
     access_log off;
     client_body_temp_path /run/bridge-daed-web/body;
     proxy_temp_path /run/bridge-daed-web/proxy;
+    fastcgi_temp_path /run/bridge-daed-web/fastcgi;
+    uwsgi_temp_path /run/bridge-daed-web/uwsgi;
+    scgi_temp_path /run/bridge-daed-web/scgi;
     map $http_upgrade $connection_upgrade { default upgrade; '' close; }
     server {
         listen ADDRESS:2023;

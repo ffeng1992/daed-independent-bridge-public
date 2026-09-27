@@ -14,6 +14,28 @@ class FrontendTests(unittest.TestCase):
         self.assertTrue(allowed('/opt/bridge-daed-web-entry/connect.js'))
         self.assertFalse(allowed('/opt/bridge-daed-web-other/index.html'))
 
+    def test_runtime_manifest_accepts_frontend_and_checks_hash(self):
+        # Execute the actual manifest function against an in-memory filesystem;
+        # unrelated controller/schema dependencies are unnecessary for this check.
+        import ast
+        from unittest.mock import Mock
+        source=(Path(__file__).resolve().parents[2]/'bridge_m4/authority.py').read_text()
+        function=next(n for n in ast.parse(source).body if isinstance(n,ast.FunctionDef) and n.name=='manifest')
+        def check(ok,code):
+            if not ok:raise RuntimeError(code)
+        for name in ('/opt/bridge-daed-web/index.html','/opt/bridge-daed-web-entry/connect.js'):
+            body=b'official fixture'
+            record={'schemaVersion':1,'files':{name:{'sha256':hashlib.sha256(body).hexdigest(),'mode':0o444}}}
+            for actual,expected in ((body,True),(b'changed',False)):
+                scope={'Path':Path,'MANIFEST':Path('/etc/daed-independent-bridge/install.json'),
+                       'directory':Mock(return_value=123),'os':Mock(),'check':check,
+                       'load_json':json.loads,'digest':lambda b:hashlib.sha256(b).hexdigest(),
+                       'read_at':Mock(side_effect=[json.dumps(record).encode(),actual])}
+                exec(compile(ast.Module(body=[function],type_ignores=[]),'authority.py','exec'),scope)
+                if expected:self.assertEqual(scope['manifest'](),record)
+                else:
+                    with self.assertRaisesRegex(RuntimeError,'INSTALL_FILE_IDENTITY'):scope['manifest']()
+
     def fixture(self,changes=None):
         files={'index.html':b'<html>official synthetic</html>','assets/app.js':b'official synthetic'}
         buf=io.BytesIO()

@@ -20,7 +20,7 @@ def manifest():
     for name,pin in record['files'].items():
         path=Path(name)
         check(path.is_absolute() and '..' not in path.parts and type(pin) is dict and set(pin)=={'sha256','mode'},'INSTALL_MANIFEST')
-        check(name=='/etc/dae-dns-repair/sync_policy_independent.py' or name.startswith(('/opt/bridge/','/usr/local/bin/bridge-','/etc/systemd/system/','/etc/tmpfiles.d/bridge-','/opt/bridge-official/','/opt/bridge-service/')),'INSTALL_PATH')
+        check(name=='/etc/dae-dns-repair/sync_policy_independent.py' or name.startswith(('/opt/bridge-daed-web/','/opt/bridge-daed-web-entry/','/opt/bridge/','/usr/local/bin/bridge-','/etc/systemd/system/','/etc/tmpfiles.d/bridge-','/opt/bridge-official/','/opt/bridge-service/')),'INSTALL_PATH')
         parent=directory(path.parent,0,0,0o755)
         try:body=read_at(parent,path.name,0,0,pin['mode'],limit=150*1024*1024)
         finally:os.close(parent)

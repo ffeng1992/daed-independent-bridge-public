@@ -29,6 +29,7 @@ http {
         add_header X-Content-Type-Options nosniff always;
         add_header Referrer-Policy no-referrer always;
         add_header X-Frame-Options DENY always;
+        location = / { try_files /index.html =404; }
         location = /graphql {
             proxy_pass http://127.0.0.1:2024/graphql;
             proxy_http_version 1.1;

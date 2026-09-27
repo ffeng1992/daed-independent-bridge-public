@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import ssl
 import urllib.request
+import urllib.error
 
 CFG=Path('/etc/daed-independent-bridge')
 
@@ -37,8 +38,11 @@ def check_dashboard():
     context=ssl.create_default_context(cafile=str(CFG/'tls.crt'))
     opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),urllib.request.HTTPSHandler(context=context))
     def get(path):
-        with opener.open(origin+path,timeout=20) as response:
-            need(response.status==200,'DAED_WEB_HTTP');return response.read()
+        try:
+            with opener.open(origin+path,timeout=20) as response:
+                need(response.status==200,'DAED_WEB_HTTP');return response.read()
+        except urllib.error.HTTPError as exc:
+            raise RuntimeError('DAED_WEB_HTTP:'+path+':'+str(exc.code)) from None
     for name in ('index.html',next(x['path'] for x in pin['files'] if x['path'].startswith('assets/index-') and x['path'].endswith('.js'))):
         expected=next(x['sha256'] for x in pin['files'] if x['path']==name)
         need(hashlib.sha256(get('/' if name=='index.html' else '/'+name)).hexdigest()==expected,'DAED_WEB_OFFICIAL_ASSET_HASH')

@@ -58,6 +58,7 @@ class FrontendTests(unittest.TestCase):
         config=configuration('192.0.2.1')
         self.assertIn('listen 192.0.2.1:2023;',config)
         self.assertIn('index index.html;',config)
+        self.assertIn('location = / { try_files /index.html =404; }',config)
         self.assertIn('proxy_pass http://127.0.0.1:2024/graphql;',config)
         self.assertNotIn('listen 192.0.2.1:2024',config)
         self.assertNotIn('8444',config)

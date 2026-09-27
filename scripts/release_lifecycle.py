@@ -15,11 +15,11 @@ ROOT = Path(__file__).resolve().parents[1]
 CFG = Path('/etc/daed-independent-bridge')
 MANIFEST = CFG / 'install.json'
 CORE = ('daed-api.service', 'bridge-helper.socket', 'bridge-attestor.service',
-        'independent-bridge.service', 'dae.service')
+        'independent-bridge.service', 'dae.service', 'daed-web.service')
 DNS = ('bridge-policy-dns.service', 'bridge-lan-dns.service')
 TIMERS = ('independent-dns-sync.timer', 'independent-policy-sync.timer')
 STOP = (*TIMERS, 'independent-policy-sync.service', 'independent-dns-sync.service',
-        'dae.service', 'independent-bridge.service', 'bridge-attestor.service',
+        'daed-web.service', 'dae.service', 'independent-bridge.service', 'bridge-attestor.service',
         'bridge-helper.socket', 'bridge-helper.service', 'daed-api.service', *DNS)
 DATA = (CFG, Path('/var/lib/bridge-daed'), Path('/var/lib/bridge-m4-client'),
         Path('/var/lib/bridge-m4-attestation'), Path('/var/lib/daed-independent-bridge'),
@@ -64,13 +64,15 @@ def config_check():
 
 def packages():
     import importlib.util
-    if all(shutil.which(x) for x in ('dnsdist','dig','openssl','ip')) and importlib.util.find_spec('pip'):
+    if all(shutil.which(x) for x in ('dnsdist','dig','openssl','ip','nginx')) and importlib.util.find_spec('pip'):
         return
+    nginx_before = subprocess.run(['dpkg-query','-W','-f=${Status}','nginx'],capture_output=True).returncode==0
     before = subprocess.run(['dpkg-query', '-W', '-f=${Status}', 'dnsdist'], capture_output=True).returncode == 0
     run(['apt-get', 'update', '-qq'])
     subprocess.run(['apt-get', 'install', '-y', '-qq', 'python3-pip', 'bind9-dnsutils', 'dnsdist',
-                    'openssl', 'iproute2', 'ca-certificates'], check=True, capture_output=True,
+                    'openssl', 'iproute2', 'ca-certificates', 'nginx'], check=True, capture_output=True,
                    timeout=600, env=dict(os.environ, DEBIAN_FRONTEND= 'noninteractive'))
+    if not nginx_before:ctl('disable','--now','nginx.service')
     if not before:
         ctl('disable', '--now', 'dnsdist.service')
 
@@ -110,12 +112,14 @@ def stop():
     ctl('stop', *TIMERS)
     oneshots = ('independent-policy-sync.service', 'independent-dns-sync.service')
     ctl('stop', *oneshots)
-    ctl('stop', *(name for name in STOP if name not in TIMERS + oneshots))
+    stopping=tuple(name for name in STOP if name not in TIMERS + oneshots and
+                   (name!='daed-web.service' or Path('/etc/systemd/system/daed-web.service').exists()))
+    ctl('stop', *stopping)
     # Official daed can exit 1 during a requested SIGTERM. This is an
     # administrative teardown, not a health result; verify absence of every
     # owned process before clearing its failed status and replacing files.
     for name in STOP:
-        if not name.endswith('.service'):continue
+        if not name.endswith('.service') or (name=='daed-web.service' and name not in stopping):continue
         fields = dict(line.split('=', 1) for line in
                       ctl('show', name, '--property=ActiveState,MainPID').stdout.decode().splitlines() if '=' in line)
         need(fields.get('MainPID') == '0' and fields.get('ActiveState') in {'inactive', 'failed'}, 'SERVICE_STOP_FAILED:' + name)

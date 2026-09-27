@@ -74,7 +74,7 @@ class LifecycleTests(unittest.TestCase):
         def ctl(*args):
             if args[0]=='show':return SimpleNamespace(stdout=b'ActiveState=failed\nMainPID=0\n')
             return SimpleNamespace(stdout=b'')
-        with patch.object(lifecycle,'ctl',side_effect=ctl) as calls:
+        with patch.object(lifecycle,'ctl',side_effect=ctl) as calls,patch.object(Path,'exists',return_value=True):
             lifecycle.stop()
             self.assertEqual(calls.call_args_list[0].args,('stop',*lifecycle.TIMERS))
             self.assertEqual(sum(c.args[0]=='reset-failed' for c in calls.call_args_list),sum(n.endswith('.service') for n in lifecycle.STOP))

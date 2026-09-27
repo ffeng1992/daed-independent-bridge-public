@@ -14,6 +14,10 @@ def run(args):
 
 def case(name,args):
     r=run(args)
+    if name.startswith('health-') or name in ('install','upgrade','reinstall','repeat-install'):
+        records=[json.loads(line) for line in r.stdout.decode().splitlines() if line.startswith('{')]
+        if not any(v.get('daedWebHTTP') is True and v.get('daedWebGraphQL') is True and v.get('onlyIndependentDAE') is True and v.get('webIdentityMatches') is True for v in records):
+            raise RuntimeError('WEB_OR_DATAPLANE_EVIDENCE_MISSING')
     checks.append({'case':name,'passed':True})
     print(name+': PASS',flush=True)
     return r
@@ -70,6 +74,6 @@ def main():
             r=subprocess.run(['journalctl','-u',unit,'--no-pager','-n','20'],capture_output=True)
             (EVIDENCE/(unit+'.log')).write_bytes(r.stdout)
     finally:
-        (EVIDENCE/'packaging-result.json').write_text(json.dumps({'passed':passed,'checkoutSha':(EVIDENCE/'candidate-commit.txt').read_text().strip(),'checks':checks},indent=2))
+        (EVIDENCE/'packaging-result.json').write_text(json.dumps({'passed':passed,'checkoutSha':(EVIDENCE/'candidate-commit.txt').read_text().strip(),'checks':checks,'officialWebVersion':'1.28.0','webChecks':'HTTP_OFFICIAL_ASSET_HASH_GRAPHQL_BRIDGE_IDENTITY_SINGLE_DAE'},indent=2))
     if not passed:raise SystemExit(1)
 if __name__=='__main__':main()

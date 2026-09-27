@@ -56,7 +56,7 @@ def check():
     from bridge_m4.dns_sync_runtime import read_status
     from bridge_m4.release_dns import Backends
     from bridge_m4.dns_sync import decide
-    manifest();identity()  # includes official hash and literal --api-only argv
+    manifest();daed=identity()  # includes official hash and literal --api-only argv
     status,expected=read_status()
     need(status.get('state')=='running' and status.get('identityVerified') is True,'DAE_IDENTITY')
     need(status.get('configSha256')==expected,'CONFIG_HASH')
@@ -73,7 +73,10 @@ def check():
     web=web_status(json.loads((CFG/'web.json').read_text()),(CFG/'attestor.token').read_text().strip())
     for field in ('state','identityVerified','activeBundle','configSha256','MainPID','InvocationID'):
         need(field in web and web[field]==status[field],'WEB_STATUS_IDENTITY')
+    from scripts.release_web_health import check_dashboard,unique_dataplane
+    unique_dataplane(daed['MainPID'],status['MainPID'])
+    dashboard=check_dashboard()
     # Do not print any token, node, config contents, cookie or source snapshot.
     print(json.dumps({'passed':True,'daedApiOnly':True,'bridge':True,'dae':True,
                       'DNS':'UDP_TCP_PASS','DAE':'UP','DIRECT':'DOWN','consistent':True,
-                      'webIdentityMatches':True}))
+                      'webIdentityMatches':True,'onlyIndependentDAE':True,**dashboard}))

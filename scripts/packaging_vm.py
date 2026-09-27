@@ -9,6 +9,7 @@ def run(*args):subprocess.run(args,check=True,cwd=ROOT)
 
 def run_vm(*, local_packaging=False):
     bootstrap='integration/packaging/bootstrap.sh'
+    check(not OUT.exists() and not EVIDENCE.exists(),'FRESH_PACKAGING_VM_REQUIRED')
     OUT.mkdir(parents=True,exist_ok=True)
     EVIDENCE.mkdir(parents=True,exist_ok=True)
     check(os.environ.get('GITHUB_ACTIONS')=='true' or (local_packaging and bootstrap=='integration/packaging/bootstrap.sh'),'DISPOSABLE_CI_ONLY')

@@ -29,6 +29,8 @@ def verify_archive(raw, pin):
 
 def prepare(root):
     root = Path(root)
+    from scripts.release_frontend import prepare as prepare_frontend
+    prepare_frontend(root)
     pins = json.loads((root / 'upstream.lock.json').read_text())['components']
     (root / 'official').mkdir(exist_ok=True)
     (root / 'out/m2-official').mkdir(parents=True, exist_ok=True)

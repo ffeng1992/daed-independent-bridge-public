@@ -29,7 +29,7 @@ jobs:
       - name: Shell syntax and lifecycle checks
         run: |
           for script in install.sh upgrade.sh uninstall.sh health-check.sh; do sh -n "$script"; done
-          python3 -m unittest tests.packaging.test_lifecycle tests.packaging.test_dns tests.m4.test_install_transaction tests.m4.test_package tests.m4.test_install_payload tests.packaging.test_export -v
+          python3 -m unittest tests.packaging.test_lifecycle tests.packaging.test_dns tests.m4.test_install_transaction tests.m4.test_package tests.m4.test_install_payload tests.packaging.test_export tests.packaging.test_frontend -v
           git diff --exit-code
       - name: Scope of evidence
         if: always()

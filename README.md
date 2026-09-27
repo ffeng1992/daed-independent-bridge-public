@@ -52,7 +52,13 @@ sudo sh install.sh --settings /root/bridge-settings.json
 之后enable/start项目服务并执行真实health check。
 管理员信息只写入`/etc/daed-independent-bridge/initial-admin.json`（root:root 0600），不打印。
 Web默认由提供的IPv4地址在8443端口提供TLS服务；初始自签证书需由管理员信任或后续替换。
-官方daed只在127.0.0.1:2023监听，通过SSH转发访问配置页面。
+官方 daed API backend 只在 `127.0.0.1:2023` 监听；2023 不向 LAN 开放，也不提供 dashboard。
+官方 **Daed Web v1.28.0** 独立提供于 `https://<webAddress>:8444/`，负责节点、订阅、组、routing 和 DNS 配置。
+**Bridge Web** 保留在 `https://<webAddress>:8443/`，负责真实独立 DAE 状态、preview、validate/apply 和生命周期。
+两者复用安装器生成的本机 TLS 证书。首次访问需信任自签证书；账号由官方 backend 管理。
+Daed Web 根入口设置官方 `endpointURL` 后打开未经修改的官方页面，同源 `/graphql` 由 nginx 转发到 loopback backend。
+不取消 `--api-only`；官方页面 Run 按钮不是独立 DAE 的启动入口。
+详见 [官方前端来源和连接方式](deployment/release/DAED_WEB.md)。
 代理节点和路由由用户后续配置，安装器不虚构订阅或代理能力。
 
 重复执行：相同payload只做健康检查，不重启；版本不同明确拒绝，要求使用升级入口。
@@ -90,7 +96,8 @@ sudo sh health-check.sh
 
 只读检查官方daed的api-only身份与哈希、真实bridge/DAE身份、activeBundle/config哈希、
 LAN53及DAE5353的UDP/TCP实际DNS查询、DAE=UP/DIRECT=DOWN/consistent=true、
-Web匿名拒绝，以及短期认证会话读取的身份与broker一致。会话检查完成后退出登录。
+Bridge Web匿名拒绝，以及短期认证会话读取的身份与broker一致；
+另核对官方 Daed Web 的 HTTP、静态文件哈希、经前端同源代理的真实 GraphQL 读取、2023仅loopback监听及唯一独立DAE。会话检查完成后退出登录。
 不记录凭据，不硬编码节点/分组数量，也不把单一商业网站作为健康条件。
 
 `/etc/daed-independent-bridge/health.json`由管理员配置，root-owned，0600或0640：
@@ -106,6 +113,7 @@ Web匿名拒绝，以及短期认证会话读取的身份与broker一致。会�
 
 | 路径 | 内容 | 默认卸载 |
 |---|---|---|
+| `/opt/bridge-daed-web`、`/opt/bridge-daed-web-entry` | 官方前端原件及项目连接入口 | 删除文件 |
 | `/opt/bridge` | bridge程序及锁定依赖 | 删除受管理文件 |
 | `/opt/bridge-official`、`/opt/bridge-service` | 固定官方程序 | 删除程序，保留assets |
 | `/etc/daed-independent-bridge` | Web/TLS、token、健康检查配置 | 保留配置 |
@@ -117,7 +125,7 @@ Web匿名拒绝，以及短期认证会话读取的身份与broker一致。会�
 
 DNS提供者配置：`/etc/daed-independent-bridge/release.json`的`providers`映射组名到IPv4:port；初始只有direct。修改必须明确匹配自己的组策略，缺失组不会静默回退。
 
-核心units：`daed-api.service`、`independent-bridge.service`、`bridge-attestor.service`、
+核心units：`daed-api.service`、`independent-bridge.service`、`daed-web.service`、`bridge-attestor.service`、
 `bridge-helper.socket/service`、`dae.service`。
 DNS集成：`bridge-lan-dns.service`、`bridge-policy-dns.service`、`independent-dns-sync.service/timer`、`independent-policy-sync.service/timer`。
 DAE使用`Restart=on-failure`和`RestartSec=2s`。
@@ -141,8 +149,8 @@ bridge/Web使用非root专用用户，helper只管理固定dae.service。
 贡献应回到维护源，不单独维护两套实现。导出规则与复现命令见
 [PUBLIC_EXPORT.md](PUBLIC_EXPORT.md)。公开仓不需要访问维护源即可安装、测试或构建。
 
-当前版本为 1.0.0 发布候选，本次不创建 tag 或发布 Release。
-后续维护者显式发布时，两仓使用相同 `VERSION` 和 tag（例如 `v1.0.0`）。
+当前版本为 0.3.0 发布候选，本次不创建 tag 或发布 Release。
+后续维护者显式发布时，两仓使用相同 `VERSION` 和 tag（例如 `v0.3.0`）。
 `release-build.yml` 仅构建并验证 tar.gz/SHA256SUMS，不自动创建 Release。
 
 安装一条命令为 `sudo sh install.sh`，首次交互提供自己的网络设置。

@@ -1,0 +1,22 @@
+[Unit]
+Description=Official daed v1.28 static dashboard and loopback GraphQL proxy
+After=network-online.target daed-api.service
+Requires=daed-api.service
+[Service]
+User=independent-bridge
+Group=independent-bridge
+ExecStart=/usr/bin/python3 -I /usr/local/bin/bridge-daed-web
+Restart=on-failure
+RestartSec=2s
+RuntimeDirectory=bridge-daed-web
+RuntimeDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+RestrictAddressFamilies=AF_UNIX AF_INET
+CapabilityBoundingSet=
+ReadWritePaths=/run/bridge-daed-web
+[Install]
+WantedBy=multi-user.target

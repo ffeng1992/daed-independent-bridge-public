@@ -29,7 +29,7 @@ def ctl(*args):return subprocess.run(['/usr/bin/systemctl',*args],capture_output
 
 def quiescent():
     from scripts.m4_production_dns import UNITS as DNS_UNITS
-    for name in UNITS+DNS_UNITS+('bridge-lan-dns.service','bridge-policy-dns.service'):
+    for name in UNITS+DNS_UNITS+('bridge-lan-dns.service','bridge-policy-dns.service','daed-web.service'):
         r=ctl('show',name,'--property=ActiveState,MainPID')
         d=dict(line.split('=',1) for line in r.stdout.decode().splitlines() if '=' in line)
         check(d.get('ActiveState')=='inactive' and d.get('MainPID','0')=='0','INSTALL_REQUIRES_INACTIVE_SERVICES')

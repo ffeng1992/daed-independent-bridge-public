@@ -54,7 +54,7 @@ sudo sh install.sh --settings /root/bridge-settings.json
 首次安装后打开 `http://<管理IP>:2023/`，按官方页面确认 GraphQL 地址。
 用户数为 0 时，第一次提交账号表单由官方 `createUser` 创建管理员；随后登录，
 官方页面初始化默认配置。已有用户时只登录，不重建账号。
-后续修改密码使用官方页面 **账户设置 → 修改密码**（官方 `updatePassword`）。
+后续修改密码：打开官方页面右上角的账号菜单，选择 **修改密码**（与“账户设置”同级，调用官方 `updatePassword`）。
 不要在错误详情或截图中分享密码；原版前端可能在错误详情显示 GraphQL variables，
 记录为 `UPSTREAM_SECURITY_ISSUE`，本项目不修改上游资源来掩盖该行为。
 

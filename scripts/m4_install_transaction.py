@@ -9,7 +9,7 @@ import stat
 import time
 
 ROOT=Path('/var/lib/bridge-m4-install')
-ALLOWED=('/opt/bridge/','/opt/bridge-official/','/opt/bridge-service/','/usr/local/bin/bridge-','/etc/systemd/system/','/etc/tmpfiles.d/bridge-')
+ALLOWED=('/opt/bridge-daed-web/','/opt/bridge-daed-web-entry/','/opt/bridge/','/opt/bridge-official/','/opt/bridge-service/','/usr/local/bin/bridge-','/etc/systemd/system/','/etc/tmpfiles.d/bridge-')
 EXACT={'/etc/daed-independent-bridge/install.json','/var/lib/daed-independent-bridge/policy.json'}
 
 OPTIONAL_EXACT={'/etc/dae-dns-repair/sync_policy_independent.py'}

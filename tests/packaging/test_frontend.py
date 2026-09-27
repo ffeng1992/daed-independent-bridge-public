@@ -8,6 +8,12 @@ from bridge_m4.official_web import configuration
 from scripts.release_frontend import unpack
 
 class FrontendTests(unittest.TestCase):
+    def test_fixed_frontend_install_paths(self):
+        from scripts.m4_install_transaction import allowed
+        self.assertTrue(allowed('/opt/bridge-daed-web/index.html'))
+        self.assertTrue(allowed('/opt/bridge-daed-web-entry/connect.js'))
+        self.assertFalse(allowed('/opt/bridge-daed-web-other/index.html'))
+
     def fixture(self,changes=None):
         files={'index.html':b'<html>official synthetic</html>','assets/app.js':b'official synthetic'}
         buf=io.BytesIO()

@@ -70,7 +70,7 @@ def main():
         if isinstance(exc,subprocess.CalledProcessError):
             (EVIDENCE/'packaging-error.log').write_bytes(exc.stdout[-8000:]+exc.stderr[-8000:])
         else:(EVIDENCE/'packaging-error.log').write_text(str(exc))
-        for unit in ('dae','daed-api','independent-bridge','bridge-helper','bridge-attestor','bridge-policy-dns','bridge-lan-dns','independent-dns-sync','independent-policy-sync'):
+        for unit in ('daed-web','dae','daed-api','independent-bridge','bridge-helper','bridge-attestor','bridge-policy-dns','bridge-lan-dns','independent-dns-sync','independent-policy-sync'):
             r=subprocess.run(['journalctl','-u',unit,'--no-pager','-n','20'],capture_output=True)
             (EVIDENCE/(unit+'.log')).write_bytes(r.stdout)
     finally:

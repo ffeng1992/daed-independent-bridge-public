@@ -10,6 +10,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import time
 
 ROOT = Path(__file__).resolve().parents[1]
 CFG = Path('/etc/daed-independent-bridge')
@@ -98,11 +99,29 @@ def health():
     check()
 
 
+def wait_for_dataplane():
+    # Type=simple start returns before official DAE finishes loading BPF/DNS.
+    sys.path[:0] = ['/opt/bridge', '/opt/bridge/vendor']
+    from bridge_m4.dns_sync_runtime import read_status
+    deadline = time.monotonic() + 60
+    while True:
+        try:
+            status, expected = read_status()
+            if (status.get('state') == 'running' and status.get('identityVerified') is True
+                    and expected and status.get('configSha256') == expected):
+                return
+        except (RuntimeError, ValueError, OSError, subprocess.SubprocessError):
+            pass  # Bounded startup observation only; no service retry or success fallback.
+        need(time.monotonic() < deadline, 'DATAPLANE_STARTUP_TIMEOUT')
+        time.sleep(1)
+
+
 def start():
     ctl('daemon-reload')
     ctl('enable', *CORE, *DNS, *TIMERS)
     ctl('start', *DNS)
     ctl('start', *CORE)
+    wait_for_dataplane()
     ctl('start', *TIMERS)
 
 

@@ -18,6 +18,7 @@ def prepare_user():
     need(api('{numberUsers}')['numberUsers']==1,'OFFICIAL_SIGNUP_FAILED')
     login=api('query($u:String!,$p:String!){token(username:$u,password:$p)}',{'u':USERNAME,'p':PASSWORD})['token']
     need(api('{user{username}}',token=login)['user']['username']==USERNAME,'OFFICIAL_LOGIN_FAILED')
+    need(type(api('{general{interfaces(up:true){name}}}',token=token)['general']['interfaces']) is list,'OFFICIAL_INTERFACE_QUERY_FAILED')
     # User-selected synthetic LAN/DNS values, not installer defaults. Configure
     # through official mutations only, as a user does before bridge activation.
     value=json.loads((CFG/'release.json').read_text())

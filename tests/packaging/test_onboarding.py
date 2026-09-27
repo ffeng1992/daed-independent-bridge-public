@@ -65,3 +65,10 @@ class OnboardingTests(unittest.TestCase):
         with patch.object(lifecycle.sys.stdin,'isatty',return_value=False),patch.object(setup,'api') as api:
             with self.assertRaisesRegex(RuntimeError,'INTERACTIVE_DAED_AUTHORIZATION_REQUIRED'):lifecycle.connect_daed()
             api.assert_not_called()
+
+    def test_official_interface_query_has_unprivileged_netlink(self):
+        unit=(ROOT/'deployment/m4/units/daed-api.service').read_text()
+        self.assertIn('AF_NETLINK',unit)
+        self.assertIn('CapabilityBoundingSet=\n',unit)
+        self.assertIn('User=bridge-daed',unit)
+        self.assertIn('--api-only',unit)

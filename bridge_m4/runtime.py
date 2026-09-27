@@ -17,7 +17,7 @@ from .runtime_bundle import artifacts, fingerprints, stage
 CLIENT=Path('/var/lib/bridge-m4-client')
 EXTENSIONS=CLIENT/'extensions'
 PUBLIC=Path('/var/lib/bridge-m4-attestation')
-ENDPOINT='http://127.0.0.1:2023/graphql'
+ENDPOINT='http://127.0.0.1:2024/graphql'
 VALIDATOR=Path('/opt/bridge-official/dae')
 
 class Runtime:

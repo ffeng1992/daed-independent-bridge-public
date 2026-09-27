@@ -56,20 +56,18 @@ class FrontendTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):unpack(raw,pin)
     def test_proxy_is_fixed_loopback_and_frontend_tls(self):
         config=configuration('192.0.2.1')
-        self.assertIn('listen 192.0.2.1:8444 ssl;',config)
-        self.assertIn('root /opt/bridge-daed-web-entry; try_files /connect.html =404;',config)
-        self.assertIn('proxy_pass http://127.0.0.1:2023/graphql;',config)
-        self.assertNotIn('listen 192.0.2.1:2023',config)
+        self.assertIn('listen 192.0.2.1:2023;',config)
+        self.assertIn('index index.html;',config)
+        self.assertIn('proxy_pass http://127.0.0.1:2024/graphql;',config)
+        self.assertNotIn('listen 192.0.2.1:2024',config)
+        self.assertNotIn('8444',config)
         for address in ('0; shutdown','example.invalid','192.0.2.1\nroot /;'):
             with self.assertRaises(ValueError):configuration(address)
-    def test_launcher_uses_real_official_key_not_credentials(self):
+    def test_official_default_endpoint_without_launcher(self):
         root=Path(__file__).resolve().parents[2]
-        js=(root/'deployment/release/daed-web/connect.js').read_text()
-        self.assertIn("localStorage.setItem('endpointURL', location.origin + '/graphql')",js)
-        self.assertIn("location.replace('/index.html' + location.hash)",js)
-        self.assertNotIn("setItem('token'",js)
+        self.assertFalse((root/'deployment/release/daed-web/connect.js').exists())
         unit=(root/'deployment/m4/units/daed-api.service').read_text()
-        self.assertIn('--api-only',unit);self.assertIn('--listen 127.0.0.1:2023',unit)
+        self.assertIn('--api-only',unit);self.assertIn('--listen 127.0.0.1:2024',unit)
     def test_existing_version_stop_skips_missing_web_only(self):
         from scripts import release_lifecycle as lifecycle
         from unittest.mock import patch

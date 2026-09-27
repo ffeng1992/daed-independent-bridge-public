@@ -50,7 +50,7 @@ def write(path,body,mode=0o600,gid=0):
 def api(query,variables=None,token=None):
     headers={'Content-Type':'application/json'}
     if token:headers['Authorization']='Bearer '+token
-    request=urllib.request.Request('http://127.0.0.1:2023/graphql',
+    request=urllib.request.Request('http://127.0.0.1:2024/graphql',
         data=json.dumps({'query':query,'variables':variables or {}}).encode(),headers=headers)
     opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
     value=json.load(opener.open(request,timeout=20))
@@ -128,7 +128,7 @@ def initialize():
     from bridge_m4.collect import collect
     from bridge_m1.collect import HTTPReader
     from bridge_m4.convert import bind_new_profiles
-    source,proof=collect(HTTPReader('http://127.0.0.1:2023/graphql',token))
+    source,proof=collect(HTTPReader('http://127.0.0.1:2024/graphql',token))
     ext=bind_new_profiles(source,{'schemaVersion':1,'classification':'REGENERATED_INDEPENDENT_BRIDGE_INPUT',
         'daedVersion':'v2.1.1','sourceSha256':'0'*64,'databaseSha256':'0'*64,'records':{'global':{},'dns':{},'group':{}}})
     client('import json;from bridge_m4.store import ExtensionStore;ExtensionStore("/var/lib/bridge-m4-client/extensions").commit(json.load(sys.stdin))',ext)

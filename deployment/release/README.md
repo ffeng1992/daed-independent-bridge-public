@@ -14,7 +14,7 @@ providers live in release.json; unsupported DNS-policy domain rules fail closed.
 Administrator credentials are generated uniquely per host and saved only at
 /etc/daed-independent-bridge/initial-admin.json (root:root 0600), never printed.
 Web TLS is self-signed initially. The API is loopback-only. Official daed Web v1.28 is a separate immutable static
-frontend on HTTPS port 8444, with same-origin GraphQL reverse-proxied to the API.
+frontend on HTTP port 2023, with same-origin GraphQL reverse-proxied to the loopback API on port 2024.
 Bridge Web remains on HTTPS port 8443. See DAED_WEB.md. No public unauthenticated control API is created.
 
 Uninstall retains configuration, database, credentials, bundle, extension store

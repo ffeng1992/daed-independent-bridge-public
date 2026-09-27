@@ -49,7 +49,5 @@ def payload(root):
     need(hashlib.sha256(license).hexdigest()==pin['license']['sha256'],'DAED_WEB_LICENSE_HASH')
     result={'/opt/bridge-daed-web/'+n:(b,0o444) for n,b in files.items()}
     result['/opt/bridge-daed-web/LICENSE']=(license,0o444)
-    for name in ('connect.html','connect.js'):
-        result['/opt/bridge-daed-web-entry/'+name]=((root/'deployment/release/daed-web'/name).read_bytes(),0o444)
     result['/usr/local/bin/bridge-daed-web']=(b'import sys\nsys.dont_write_bytecode=True\nsys.path.insert(0,"/opt/bridge")\nfrom bridge_m4.official_web import main\nmain()\n',0o755)
     return result

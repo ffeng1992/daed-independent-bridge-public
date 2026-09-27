@@ -22,8 +22,8 @@ def identity():
     lock=load_json(Path('/opt/bridge/upstream.lock.json').read_bytes())
     expected=next(x['sha256'] for x in lock['components']['daed']['archive_members'] if x['path'].endswith('/daed-linux-x86_64'))
     argv=Path(f'/proc/{pid}/cmdline').read_bytes().split(b'\0')[:-1]
-    check(binary==expected and argv==[b'/opt/bridge-official/daed',b'run',b'--api-only',b'--config',b'/var/lib/bridge-daed',b'--listen',b'127.0.0.1:2023'],'DAED_IDENTITY')
-    inodes={line.split()[9] for line in Path('/proc/net/tcp').read_text().splitlines()[1:] if line.split()[1]=='0100007F:07E7' and line.split()[3]=='0A'}
+    check(binary==expected and argv==[b'/opt/bridge-official/daed',b'run',b'--api-only',b'--config',b'/var/lib/bridge-daed',b'--listen',b'127.0.0.1:2024'],'DAED_IDENTITY')
+    inodes={line.split()[9] for line in Path('/proc/net/tcp').read_text().splitlines()[1:] if line.split()[1]=='0100007F:07E8' and line.split()[3]=='0A'}
     links={os.readlink(p) for p in Path(f'/proc/{pid}/fd').iterdir()}
     check(any('socket:['+i+']' in links for i in inodes),'DAED_LISTENER')
     return dict(raw,binarySha256=binary)

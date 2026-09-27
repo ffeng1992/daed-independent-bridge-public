@@ -11,7 +11,7 @@ class AuthError(Exception):
     pass
 
 class DaedAuthenticator:
-    def __init__(self, port=2023):
+    def __init__(self, port=2024):
         if type(port) is not int or not 1<=port<=65535:raise AuthError('AUTH_CONFIGURATION')
         self.port=port
     def query(self, query, variables, token=None):

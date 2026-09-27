@@ -21,15 +21,13 @@ No npm install or frontend rebuild runs on the user's machine.
 Official
 [defaults](https://github.com/daeuniverse/daed/blob/b3043aa7ce07c774c65e546112aa2c7a1c12edb5/apps/web/src/constants/default.ts)
 use `${location.protocol}//${location.hostname}:2023/graphql`.
-The official Setup form supports a custom endpoint; the
-[store](https://github.com/daeuniverse/daed/blob/b3043aa7ce07c774c65e546112aa2c7a1c12edb5/apps/web/src/store/index.ts)
-persists it under `endpointURL`. The project's separate root launcher sets this
-one non-secret key to the same-origin `/graphql`, then opens official `index.html`.
-It never writes a token/password or edits the upstream assets.
+The frontend is served on HTTP port 2023, matching that default without a launcher
+or localStorage rewriting. nginx serves the original index.html at `/` and proxies
+same-origin `/graphql` to the loopback-only API backend on port 2024.
 
-- Daed Web: `https://<webAddress>:8444/`, configuration management.
+- Daed Web: `http://<webAddress>:2023/`, configuration management.
 - Bridge Web: `https://<webAddress>:8443/`, independent DAE control and real state.
-- Backend: `http://127.0.0.1:2023/graphql`, still `--api-only`, not LAN-bound.
+- Backend: `http://127.0.0.1:2024/graphql`, still `--api-only`, not LAN-bound.
 - `daed-web.service`: non-root standalone nginx, fixed loopback reverse proxy,
   no capabilities; only its runtime directory is writable. The distro default
   nginx service is disabled only when newly installed by this package.
@@ -37,4 +35,4 @@ It never writes a token/password or edits the upstream assets.
 The official Run API retains upstream API-only behavior; use Bridge Web to apply
 or start the separate official DAE. The two Web interfaces do not merge their
 state models. TLS keys, accounts and databases are retained across uninstall.
-Static frontend assets/launcher and its service are removed with other programs.
+Static frontend assets and its service are removed with other programs.

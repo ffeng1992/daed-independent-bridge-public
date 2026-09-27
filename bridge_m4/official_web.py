@@ -22,21 +22,17 @@ http {
     proxy_temp_path /run/bridge-daed-web/proxy;
     map $http_upgrade $connection_upgrade { default upgrade; '' close; }
     server {
-        listen ADDRESS:8444 ssl;
+        listen ADDRESS:2023;
         server_name _;
-        ssl_certificate /etc/daed-independent-bridge/tls.crt;
-        ssl_certificate_key /etc/daed-independent-bridge/tls.key;
-        ssl_protocols TLSv1.2 TLSv1.3;
         root /opt/bridge-daed-web;
+        index index.html;
         add_header X-Content-Type-Options nosniff always;
         add_header Referrer-Policy no-referrer always;
         add_header X-Frame-Options DENY always;
-        location = / { root /opt/bridge-daed-web-entry; try_files /connect.html =404; default_type text/html; }
-        location = /connect.js { alias /opt/bridge-daed-web-entry/connect.js; default_type application/javascript; }
         location = /graphql {
-            proxy_pass http://127.0.0.1:2023/graphql;
+            proxy_pass http://127.0.0.1:2024/graphql;
             proxy_http_version 1.1;
-            proxy_set_header Host 127.0.0.1:2023;
+            proxy_set_header Host 127.0.0.1:2024;
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection $connection_upgrade;
             proxy_read_timeout 60s;

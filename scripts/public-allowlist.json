@@ -81,8 +81,6 @@
   "deployment/release/DAED_WEB.md",
   "deployment/release/PROVENANCE.md",
   "deployment/release/README.md",
-  "deployment/release/daed-web/connect.html",
-  "deployment/release/daed-web/connect.js",
   "deployment/release/settings.example.json",
   "deployment/release/units/bridge-lan-dns.service",
   "deployment/release/units/bridge-policy-dns.service",

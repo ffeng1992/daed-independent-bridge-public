@@ -1,4 +1,4 @@
-"""Official daed administrator authentication and memory-only short sessions."""
+"""Separate Bridge authentication, daed API authorization and short sessions."""
 import hashlib
 import http.client
 import json

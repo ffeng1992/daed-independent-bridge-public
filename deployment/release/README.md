@@ -7,12 +7,19 @@ profile remains unchanged.
 
 First installation asks for LAN address/interface/network, DNS upstream, health
 DNS name and Web listen address, or reads `--settings settings.json` (see the
-example). Initial routing is explicitly **direct-only**. Add your proxy nodes and
-rules in official daed, then preview/validate/apply from bridge Web. Group DNS
+example). The installer leaves a new official database with zero users. Visit
+HTTP port 2023 to create the first official account and log in. The original
+frontend creates its default resources; the installer does not write defaults.
+Add your LAN/DNS settings, proxy nodes and rules in official daed. Group DNS
 providers live in release.json; unsupported DNS-policy domain rules fail closed.
 
-Administrator credentials are generated uniquely per host and saved only at
-/etc/daed-independent-bridge/initial-admin.json (root:root 0600), never printed.
+Bridge authentication is separate: bridge-login.token (root:independent-bridge
+0640) is a local Bridge login credential, never a daed password or API token.
+After official setup, `sudo sh install.sh --connect-daed` explicitly authorizes
+collection using an existing official account. No password is saved. Only the
+daed API token is stored for the collector and attestor. This command validates
+and applies the selected configuration without changing official account/config
+fields. Before this step, managementReady is not a data-plane health PASS.
 Web TLS is self-signed initially. The API is loopback-only. Official daed Web v1.28 is a separate immutable static
 frontend on HTTP port 2023, with same-origin GraphQL reverse-proxied to the loopback API on port 2024.
 Bridge Web remains on HTTPS port 8443. See DAED_WEB.md. No public unauthenticated control API is created.

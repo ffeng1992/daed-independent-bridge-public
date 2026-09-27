@@ -127,7 +127,7 @@ def start_management():
 
 def connect_daed():
     import getpass
-    from scripts.release_setup import api,connect,apply_initial
+    from scripts.release_setup import api
     need(sys.stdin.isatty(),'INTERACTIVE_DAED_AUTHORIZATION_REQUIRED')
     username=input('Existing official daed username: ')
     password=getpass.getpass('Official daed password (not stored): ')

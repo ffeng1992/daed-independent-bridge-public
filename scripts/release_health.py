@@ -49,7 +49,7 @@ def web_status(config, token):
     finally: query('/api/logout',{},session['csrf'])
 
 
-def check():
+def check(*,require_dataplane=True):
     sys.path[:0]=['/opt/bridge','/opt/bridge/vendor']
     from bridge_m4.attestor import identity
     from bridge_m4.authority import manifest
@@ -58,6 +58,16 @@ def check():
     from bridge_m4.dns_sync import decide
     manifest();daed=identity()  # includes official hash and literal --api-only argv
     status,expected=read_status()
+    if (CFG/'setup-pending').exists() and not require_dataplane:
+        from scripts.release_web_health import check_dashboard,unique_dataplane
+        need(not status.get('activeBundle') and status.get('MainPID')==0 and status.get('state')=='stopped','SETUP_STATE_CONFLICT')
+        web=web_status(json.loads((CFG/'web.json').read_text()),(CFG/'bridge-login.token').read_text().strip())
+        need(web==status,'WEB_STATUS_IDENTITY')
+        unique_dataplane(daed['MainPID'],0)
+        dashboard=check_dashboard(setup=True)
+        print(json.dumps({'managementReady':True,'setupRequired':True,'dataplaneReady':False,
+                          'bridgeAuthentication':'INDEPENDENT','webIdentityMatches':True,**dashboard}))
+        return
     need(status.get('state')=='running' and status.get('identityVerified') is True,'DAE_IDENTITY')
     need(status.get('configSha256')==expected,'CONFIG_HASH')
     backends=Backends().states()
@@ -70,7 +80,7 @@ def check():
     need(type(name) is str and 0<len(name)<=253 and all(c.isalnum() or c in '.-' for c in name),'DNS_NAME')
     for server,port in ((address,53),('127.0.0.1',5353)):
         for tcp in (False,True): dns(server,port,name,tcp)
-    web=web_status(json.loads((CFG/'web.json').read_text()),(CFG/'attestor.token').read_text().strip())
+    web=web_status(json.loads((CFG/'web.json').read_text()),(CFG/'bridge-login.token').read_text().strip())
     for field in ('state','identityVerified','activeBundle','configSha256','MainPID','InvocationID'):
         need(field in web and web[field]==status[field],'WEB_STATUS_IDENTITY')
     from scripts.release_web_health import check_dashboard,unique_dataplane

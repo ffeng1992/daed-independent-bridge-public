@@ -6,7 +6,7 @@ from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
-from .auth import AuthError, DaedAuthenticator, Sessions
+from .auth import AuthError, BridgeAuthenticator, Sessions, local_token
 from bridge_m2.security import Denied,check
 from .runtime import Runtime
 
@@ -85,7 +85,8 @@ class Handler(BaseHTTPRequestHandler):
         if not mutating:
             if path=='/api/session':value={}
             elif path=='/api/status':value=self.server.runtime.action('status')
-            elif path=='/api/extensions':value=self.server.runtime.extensions()
+            elif path=='/api/extensions':
+                value=({'setupRequired':True,'generation':None,'records':{}} if not Path('/etc/daed-independent-bridge/backend.token').exists() else self.server.runtime.extensions())
             else:raise AuthError('REQUEST_REJECTED')
         else:
             value=self.body()
@@ -133,7 +134,12 @@ def main():
     check(type(config['port']) is int and 1024<=config['port']<=65535,'WEB_CONFIGURATION')
     origin=urlsplit(config['origin'])
     check(origin.scheme=='https' and origin.hostname==config['address'] and origin.port==config['port'] and not origin.path and not origin.query and not origin.fragment and not origin.username,'WEB_CONFIGURATION')
-    server=Server((config['address'],config['port']),config['origin'],Sessions(DaedAuthenticator()),Runtime())
+    from .collect import collect
+    from bridge_m1.collect import HTTPReader
+    from .runtime import ENDPOINT
+    # Session tokens authorize this Web only. Never forward them to daed.
+    runtime=Runtime(collector=lambda _session_token:collect(HTTPReader(ENDPOINT,local_token('backend.token'))))
+    server=Server((config['address'],config['port']),config['origin'],Sessions(BridgeAuthenticator()),runtime)
     context=ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER);context.minimum_version=ssl.TLSVersion.TLSv1_2
     context.load_cert_chain('/etc/daed-independent-bridge/tls.crt','/etc/daed-independent-bridge/tls.key')
     server.socket=context.wrap_socket(server.socket,server_side=True)

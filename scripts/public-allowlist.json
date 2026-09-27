@@ -104,6 +104,7 @@
   "integration/packaging/acceptance.py",
   "integration/packaging/bootstrap.sh",
   "integration/packaging/dns_fixture.py",
+  "integration/packaging/onboarding.py",
   "integration/packaging/vm.lock.json",
   "scripts/__init__.py",
   "scripts/export-public.sh",
@@ -134,6 +135,7 @@
   "tests/packaging/test_export.py",
   "tests/packaging/test_frontend.py",
   "tests/packaging/test_lifecycle.py",
+  "tests/packaging/test_onboarding.py",
   "uninstall.sh",
   "upgrade.sh",
   "upstream.lock.json"

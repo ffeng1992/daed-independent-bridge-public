@@ -47,21 +47,42 @@ sudo sh install.sh --settings /root/bridge-settings.json
 
 格式见 [settings.example.json](deployment/release/settings.example.json)，文档地址只作占位符。
 安装器安装Debian运行依赖，逐成员校验锁定官方发布包及带哈希的Python依赖，
-安装固定路径程序、生成本机独有管理员和TLS配置，通过官方GraphQL初始化**直连**策略，
-沿现有双快照/IR/receipt/validate/helper流程应用第一个bundle。
-之后enable/start项目服务并执行真实health check。
-管理员信息只写入`/etc/daed-independent-bridge/initial-admin.json`（root:root 0600），不打印。
+安装固定路径程序、生成 Bridge 专用登录令牌和 TLS 配置，并启动管理页面。
+**不会创建、重置或修改官方 daed 账号**，新数据库保持 `numberUsers=0`。
+不会生成或保存 initial daed admin password。
+
+首次安装后打开 `http://<管理IP>:2023/`，按官方页面确认 GraphQL 地址。
+用户数为 0 时，第一次提交账号表单由官方 `createUser` 创建管理员；随后登录，
+官方页面初始化默认配置。已有用户时只登录，不重建账号。
+后续修改密码使用官方页面 **账户设置 → 修改密码**（官方 `updatePassword`）。
+不要在错误详情或截图中分享密码；原版前端可能在错误详情显示 GraphQL variables，
+记录为 `UPSTREAM_SECURITY_ISSUE`，本项目不修改上游资源来掩盖该行为。
+
+**Bridge Web 账号独立**：使用 `/etc/daed-independent-bridge/bridge-login.token`
+中的专用令牌登录（root:independent-bridge 0640），不接受 daed 用户名/密码或 daed token 登录。
+完成官方配置后，先在 daed 页面将 LAN 接口、DNS 监听 `tcp+udp://127.0.0.1:5353`、
+DNS 上游 `tcp+udp://127.0.0.1:5534` 和路由设为自己的预期值，然后执行：
+
+```sh
+sudo sh install.sh --connect-daed
+```
+
+此命令交互验证已存在的官方账号，密码不保存；仅保存供采集/attestor 使用的 API token。
+它不修改官方账号或配置，经双快照、扩展、receipt、validate 和 helper 应用用户选中的配置。
+Bridge 登录令牌不会发送给 daed。修改官方密码后可再次执行此命令更新采集授权。
+配置尚未完成时安装报告 `setupRequired=true, dataplaneReady=false`，不会启动 DAE；
+独立 `health-check.sh` 此时返回非零，不把未配置状态当成数据面 PASS。
 Web默认由提供的IPv4地址在8443端口提供TLS服务；初始自签证书需由管理员信任或后续替换。
 官方 daed API backend 只在 `127.0.0.1:2024` 监听；2024 不向 LAN 开放，也不提供 dashboard。
 官方 **Daed Web v1.28.0** 独立提供于 `http://<webAddress>:2023/`，负责节点、订阅、组、routing 和 DNS 配置。
 **Bridge Web** 保留在 `https://<webAddress>:8443/`，负责真实独立 DAE 状态、preview、validate/apply 和生命周期。
-Daed Web 使用官方默认 HTTP 2023；Bridge Web 使用 TLS。账号由官方 backend 管理。
+Daed Web 使用官方默认 HTTP 2023，账号由官方 backend 管理；Bridge Web 使用 TLS 和独立认证。
 Daed Web 根入口直接提供官方 index.html；官方默认同源 `/graphql` 由 nginx 转发到 loopback backend。
 不取消 `--api-only`；官方页面 Run 按钮不是独立 DAE 的启动入口。
 详见 [官方前端来源和连接方式](deployment/release/DAED_WEB.md)。
 代理节点和路由由用户后续配置，安装器不虚构订阅或代理能力。
 
-重复执行：相同payload只做健康检查，不重启；版本不同明确拒绝，要求使用升级入口。
+重复执行：相同 payload 未指定 `--connect-daed` 时只做当前阶段检查，不重启；版本不同明确拒绝，要求使用升级入口。
 不覆盖用户数据库、Web配置、TLS密钥、attestor token或扩展配置。
 
 ## 升级

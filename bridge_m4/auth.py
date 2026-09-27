@@ -42,6 +42,30 @@ class DaedAuthenticator:
         else:raise AuthError('AUTH_FAILED')
         self.verify(token);return token
 
+def local_token(name):
+    """Read one fixed root-owned secret; never treat a daed token as a login."""
+    import os
+    from bridge_m2.security import directory, read_at
+    if name not in {'bridge-login.token','backend.token'}:raise AuthError('AUTH_CONFIGURATION')
+    fd=directory('/etc/daed-independent-bridge',0,0,0o755)
+    try:raw=read_at(fd,name,0,os.getegid(),0o640)
+    finally:os.close(fd)
+    value=raw.decode().strip()
+    if not 32<=len(value)<=8192 or any(c.isspace() for c in value):raise AuthError('AUTH_CONFIGURATION')
+    return value
+
+
+class BridgeAuthenticator:
+    """Separate bridge administrator credential, with no daed API dependency."""
+    def __init__(self,reader=None):self.reader=reader or (lambda:local_token('bridge-login.token'))
+    def verify(self,token):
+        if type(token) is not str or not secrets.compare_digest(token.encode(),self.reader().encode()):
+            raise AuthError('AUTH_FAILED')
+    def login(self,credentials):
+        if type(credentials) is not dict or set(credentials)!={'token'}:raise AuthError('AUTH_FAILED')
+        token=credentials['token'];self.verify(token);return token
+
+
 @dataclass
 class Session:
     token:str = field(repr=False)

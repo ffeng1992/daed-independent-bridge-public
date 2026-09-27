@@ -25,7 +25,7 @@ STOP = (*TIMERS, 'independent-policy-sync.service', 'independent-dns-sync.servic
 DATA = (CFG, Path('/var/lib/bridge-daed'), Path('/var/lib/bridge-m4-client'),
         Path('/var/lib/bridge-m4-attestation'), Path('/var/lib/daed-independent-bridge'),
         Path('/var/lib/bridge-m4-install'), Path('/opt/bridge-official/assets'))
-REQUIRED_CONFIG = ('web.json', 'tls.crt', 'tls.key', 'attestor.token', 'health.json')
+REQUIRED_CONFIG = ('web.json', 'tls.crt', 'tls.key', 'health.json')
 
 
 def need(ok, code):
@@ -59,8 +59,10 @@ def config_check():
         st = p.stat()
         need(st.st_uid == 0 and not stat.S_IMODE(st.st_mode) & 0o022,
              'CONFIGURATION_PERMISSIONS:' + name)
-    need(Path('/var/lib/bridge-m4-client/extensions/current').is_file(), 'INITIAL_EXTENSIONS_REQUIRED')
-    need(Path('/var/lib/daed-independent-bridge/current').is_symlink(), 'VERIFIED_INITIAL_BUNDLE_REQUIRED')
+    if not (CFG/'setup-pending').exists():
+        need((CFG/'attestor.token').is_file(), 'DAED_CONNECTION_REQUIRED')
+        need(Path('/var/lib/bridge-m4-client/extensions/current').is_file(), 'INITIAL_EXTENSIONS_REQUIRED')
+        need(Path('/var/lib/daed-independent-bridge/current').is_symlink(), 'VERIFIED_INITIAL_BUNDLE_REQUIRED')
 
 
 def packages():
@@ -96,7 +98,7 @@ def ready_payload():
 
 def health():
     from scripts.release_health import check
-    check()
+    check(require_dataplane=not (CFG/'setup-pending').exists())
 
 
 def wait_for_dataplane():
@@ -114,6 +116,40 @@ def wait_for_dataplane():
             pass  # Bounded startup observation only; no service retry or success fallback.
         need(time.monotonic() < deadline, 'DATAPLANE_STARTUP_TIMEOUT')
         time.sleep(1)
+
+
+def start_management():
+    ctl('daemon-reload')
+    units=(*DNS,'daed-api.service','daed-web.service','bridge-helper.socket','independent-bridge.service')
+    ctl('enable',*units)
+    ctl('start',*units)
+
+
+def connect_daed():
+    import getpass
+    from scripts.release_setup import api,connect,apply_initial
+    need(sys.stdin.isatty(),'INTERACTIVE_DAED_AUTHORIZATION_REQUIRED')
+    username=input('Existing official daed username: ')
+    password=getpass.getpass('Official daed password (not stored): ')
+    token=api('query($u:String!,$p:String!){token(username:$u,password:$p)}',{'u':username,'p':password})['token']
+    del password
+    authorize_daed(token)
+
+
+def authorize_daed(token):
+    from scripts.release_setup import connect,apply_initial
+    connect(token)
+    ctl('restart','bridge-attestor.service')
+    apply_initial()
+    start()
+    ctl('start','independent-dns-sync.service','independent-policy-sync.service')
+    health_complete()
+    (CFG/'setup-pending').unlink(missing_ok=True)
+
+
+def health_complete():
+    from scripts.release_health import check
+    check(require_dataplane=True)
 
 
 def start():
@@ -161,7 +197,7 @@ def purge():
 
 def execute(action, args):
     if action == 'health-check':
-        health()
+        health_complete()
         return
     if action == 'uninstall':
         need(not args.purge or args.confirm_purge == 'DELETE-INDEPENDENT-BRIDGE',
@@ -201,19 +237,28 @@ def execute(action, args):
         m4_install.verify_installed(record)
     if action == 'install' and record:
         need(same_payload(files, record), 'ALREADY_INSTALLED_DIFFERENT_VERSION_USE_UPGRADE')
-        health()
+        if getattr(args,'connect_daed',False):connect_daed()
+        else:health()
         print('{"alreadyInstalled":true}')
         return
     if record:
         stop()
     m4_install.install(upgrade=record is not None, preserve_assets=True, release_profile=True)
     if fresh:
-        from scripts.release_setup import configure, initialize, apply_initial
+        from scripts.release_setup import configure,write
         configure(value)
-        ctl('start', *DNS, 'daed-api.service')
-        initialize()
-        ctl('start', 'bridge-helper.socket', 'bridge-attestor.service', 'independent-bridge.service')
-        apply_initial()
+        write(CFG/'setup-pending',b'Official user setup and explicit bridge authorization required.\n')
+    from scripts.release_setup import bridge_credentials
+    bridge_credentials()
+    if (CFG/'setup-pending').exists():
+        start_management()
+        if fresh:
+            from scripts.release_setup import api,wait
+            wait(lambda:api('{__typename}'))
+            need(api('{numberUsers}')['numberUsers']==0,'FRESH_DATABASE_HAS_USERS')
+        if getattr(args,'connect_daed',False):connect_daed()
+        else:health()
+        return
     start()
     # Synchronize once now; do not mistake an unexpired timer for healthy DNS.
     ctl('start', 'independent-dns-sync.service', 'independent-policy-sync.service')
@@ -223,11 +268,13 @@ def execute(action, args):
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('action', choices=('install', 'upgrade', 'uninstall', 'health-check'))
+    p.add_argument('--connect-daed',action='store_true',help='After official Web setup: authorize collection and validate/apply selected configuration')
     p.add_argument('--settings', help='First-install network settings JSON (no credentials)')
     p.add_argument('--purge', action='store_true', help='Delete fixed project-owned persistent data')
     p.add_argument('--confirm-purge', choices=('DELETE-INDEPENDENT-BRIDGE',))
     args = p.parse_args(argv)
     need(args.action == 'uninstall' or not (args.purge or args.confirm_purge), 'UNINSTALL_OPTION_ONLY')
+    need(not args.connect_daed or args.action=='install','INSTALL_CONNECTION_OPTION_ONLY')
     platform_check()
     with open('/run/bridge-release.lock', 'a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)

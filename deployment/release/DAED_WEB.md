@@ -36,3 +36,14 @@ The official Run API retains upstream API-only behavior; use Bridge Web to apply
 or start the separate official DAE. The two Web interfaces do not merge their
 state models. TLS keys, accounts and databases are retained across uninstall.
 Static frontend assets and its service are removed with other programs.
+
+## Original first-account flow
+
+The pinned official Setup.tsx reads `numberUsers`. Zero users presents Create
+Account (`createUser`), then login (`token`); initialize.ts creates missing default
+resources after login. The installer invokes none of these mutations. Existing
+users and passwords are retained on upgrade/reinstall. Account settings invokes
+upstream `updatePassword`; no direct SQLite password edits are supported.
+
+Bridge Web uses a separate local login token. The separately authorized daed API
+token is used only for read-only source collection and receipt observation.

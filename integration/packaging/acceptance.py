@@ -14,7 +14,11 @@ def run(args):
 
 def case(name,args):
     r=run(args)
-    if name.startswith('health-') or name in ('install','upgrade','reinstall','repeat-install'):
+    if name=='install':
+        records=[json.loads(line) for line in r.stdout.decode().splitlines() if line.startswith('{')]
+        if not any(v.get('managementReady') is True and v.get('setupRequired') is True and v.get('dataplaneReady') is False and v.get('daedWebGraphQL') is True for v in records):
+            raise RuntimeError('FIRST_SETUP_EVIDENCE_MISSING')
+    elif name.startswith('health-') or name in ('upgrade','reinstall','repeat-install'):
         records=[json.loads(line) for line in r.stdout.decode().splitlines() if line.startswith('{')]
         if not any(v.get('daedWebHTTP') is True and v.get('daedWebGraphQL') is True and v.get('onlyIndependentDAE') is True and v.get('webIdentityMatches') is True for v in records):
             raise RuntimeError('WEB_OR_DATAPLANE_EVIDENCE_MISSING')
@@ -47,7 +51,14 @@ def main():
         stages=[('install',['sh','install.sh','--settings',str(settings)]),
                 ('health-install',['sh','health-check.sh']),('repeat-install',['sh','install.sh']),
                 ('upgrade',['sh','upgrade.sh']),('health-upgrade',['sh','health-check.sh'])]
-        for stage,args in stages:case(stage,args)
+        for stage,args in stages:
+            case(stage,args)
+            from integration.packaging.onboarding import prepare_user,existing_account
+            if stage=='install':
+                stage='official-first-account-and-authorization'
+                prepare_user()
+                checks.append({'case':stage,'passed':True})
+            existing_account()
         # Stop before snapshotting to avoid treating normal SQLite WAL flush as corruption.
         from scripts.release_lifecycle import stop
         stop();before=retained()
@@ -55,7 +66,7 @@ def main():
         if retained()!=before:raise RuntimeError('RETAINED_DATA_CHANGED')
         checks.append({'case':'persistent-data-retained','passed':True})
         stage='reinstall';case(stage,['sh','install.sh'])
-        stage='health-reinstall';case(stage,['sh','health-check.sh'])
+        stage='health-reinstall';case(stage,['sh','health-check.sh']);existing_account()
         stage='purge';case(stage,['sh','uninstall.sh','--purge','--confirm-purge','DELETE-INDEPENDENT-BRIDGE'])
         from scripts.release_lifecycle import DATA
         if any(p.exists() for p in DATA):raise RuntimeError('PURGE_DATA_REMAINS')

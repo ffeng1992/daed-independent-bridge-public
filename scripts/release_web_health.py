@@ -22,7 +22,7 @@ def unique_dataplane(daed_pid,dae_pid):
             name=Path(os.readlink(proc/'exe')).name
             if name=='dae' or name.startswith(('dae-linux','daed')):seen.add(int(proc.name))
         except FileNotFoundError:continue
-    need(seen=={int(daed_pid),int(dae_pid)},'DAE_DATAPLANE_NOT_UNIQUE')
+    need(seen==({int(daed_pid),int(dae_pid)} if dae_pid else {int(daed_pid)}),'DAE_DATAPLANE_NOT_UNIQUE')
     listeners=[]
     for name in ('tcp','tcp6'):
         for line in Path('/proc/net',name).read_text().splitlines()[1:]:
@@ -31,7 +31,7 @@ def unique_dataplane(daed_pid,dae_pid):
     need(listeners==['0100007F:07E8'],'DAED_BACKEND_NOT_LOOPBACK_ONLY')
 
 
-def check_dashboard():
+def check_dashboard(*,setup=False):
     config=json.loads((CFG/'web.json').read_text())
     origin='http://'+str(ipaddress.IPv4Address(config['address']))+':2023'
     pin=json.loads(Path('/opt/bridge/upstream.lock.json').read_text())['webFrontend']
@@ -46,13 +46,16 @@ def check_dashboard():
     for name in ('index.html',next(x['path'] for x in pin['files'] if x['path'].startswith('assets/index-') and x['path'].endswith('.js'))):
         expected=next(x['sha256'] for x in pin['files'] if x['path']==name)
         need(hashlib.sha256(get('/' if name=='index.html' else '/'+name)).hexdigest()==expected,'DAED_WEB_OFFICIAL_ASSET_HASH')
-    token=(CFG/'attestor.token').read_text().strip()
-    query=json.dumps({'query':'{ configs { id selected } groups { id } }'}).encode()
+    token=None if setup else (CFG/'attestor.token').read_text().strip()
+    query=json.dumps({'query':'{ numberUsers }' if setup else '{ configs { id selected } groups { id } }'}).encode()
     def graphql(url):
-        request=urllib.request.Request(url,data=query,headers={'Content-Type':'application/json','Authorization':'Bearer '+token})
+        headers={'Content-Type':'application/json'}
+        if token:headers['Authorization']='Bearer '+token
+        request=urllib.request.Request(url,data=query,headers=headers)
         with opener.open(request,timeout=20) as response:value=json.load(response)
         need(not value.get('errors') and type(value.get('data')) is dict and
-             type(value['data'].get('configs')) is list and type(value['data'].get('groups')) is list,'DAED_WEB_GRAPHQL')
+             ((type(value['data'].get('numberUsers')) is int and value['data']['numberUsers']>=0) if setup else
+              (type(value['data'].get('configs')) is list and type(value['data'].get('groups')) is list)),'DAED_WEB_GRAPHQL')
         return value['data']
     need(graphql(origin+'/graphql')==graphql('http://127.0.0.1:2024/graphql'),'DAED_WEB_BACKEND_MISMATCH')
     return {'daedWebHTTP':True,'daedWebOfficialVersion':pin['version'],'daedWebGraphQL':True}

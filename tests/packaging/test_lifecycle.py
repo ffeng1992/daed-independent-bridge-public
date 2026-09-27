@@ -49,7 +49,7 @@ class LifecycleTests(unittest.TestCase):
                 stop.assert_not_called()
 
     def test_health_failure_is_not_swallowed(self):
-        with patch.object(lifecycle,'health',side_effect=RuntimeError('DNS_QUERY_FAILED')):
+        with patch.object(lifecycle,'health_complete',side_effect=RuntimeError('DNS_QUERY_FAILED')):
             with self.assertRaisesRegex(RuntimeError,'DNS_QUERY_FAILED'):lifecycle.execute('health-check',SimpleNamespace())
 
     def test_purge_rejects_link_and_keeps_shared_dns(self):

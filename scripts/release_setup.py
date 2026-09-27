@@ -106,32 +106,37 @@ getServer(1):setUp()
     write(CFG/'policy-dns.conf',generate('fallback: direct',value['providers'],Path('/opt/bridge-official/assets/geosite.dat')),0o644)
 
 
-def initialize():
-    value=json.loads((CFG/'release.json').read_text())
-    wait(lambda:api('{__typename}'))
-    need(api('{numberUsers}')['numberUsers']==0,'EXISTING_DAED_ACCOUNT_REFUSED')
-    password=secrets.token_urlsafe(32)
-    token=api('mutation($u:String!,$p:String!){createUser(username:$u,password:$p)}',{'u':'admin','p':password})['createUser']
-    write(CFG/'initial-admin.json',json.dumps({'username':'admin','password':password}).encode())
-    write(CFG/'attestor.token',token.encode())
-    # A new official daed DB has no config rows. Send only explicit network
-    # settings; createConfig applies upstream defaults, which are subsequently
-    # read back through the normal GraphQL double-snapshot conversion.
-    global_fields=dict(lanInterface=[value['lanInterface']],wanInterface=[],
-        bootstrapResolver=value['upstream'],fallbackResolver=value['upstream'],
-        autoConfigKernelParameter=True,disableWaitingNetwork=True)
-    config=api('mutation($g:globalInput!){createConfig(name:"Independent bridge",global:$g){id}}',{'g':global_fields},token)['createConfig']['id']
-    dns=api('mutation($s:String!){createDns(name:"Independent DNS",dns:$s){id}}',{'s':"bind: 'tcp+udp://127.0.0.1:5353'\nupstream { policy: 'tcp+udp://127.0.0.1:5534' }\nrouting { request { fallback: policy } response { fallback: accept } }"},token)['createDns']['id']
-    routing=api('mutation($s:String!){createRouting(name:"Independent direct initial policy",routing:$s){id}}',{'s':'fallback: direct'},token)['createRouting']['id']
-    for kind,ident in (('Config',config),('Dns',dns),('Routing',routing)):
-        api('mutation($id:ID!){select'+kind+'(id:$id)}',{'id':ident},token)
+def bridge_credentials():
+    """Independent Web credential; never creates or changes a daed user."""
+    target=CFG/'bridge-login.token'
+    if not target.exists():
+        write(target,secrets.token_urlsafe(48).encode(),0o640,pwd.getpwnam('independent-bridge').pw_gid)
+    # Existing daed integration tokens are not Web login credentials.
+    if (CFG/'attestor.token').exists() and not (CFG/'backend.token').exists():
+        write(CFG/'backend.token',(CFG/'attestor.token').read_bytes(),0o640,pwd.getpwnam('independent-bridge').pw_gid)
+
+
+def connect(token):
+    """Explicit authorization after official setup. No account/config mutations."""
+    from bridge_m4.auth import DaedAuthenticator
+    DaedAuthenticator().verify(token)
+    need(api('{numberUsers}')['numberUsers']>0,'OFFICIAL_FIRST_ACCOUNT_REQUIRED')
     from bridge_m4.collect import collect
     from bridge_m1.collect import HTTPReader
     from bridge_m4.convert import bind_new_profiles
     source,proof=collect(HTTPReader('http://127.0.0.1:2024/graphql',token))
     ext=bind_new_profiles(source,{'schemaVersion':1,'classification':'REGENERATED_INDEPENDENT_BRIDGE_INPUT',
         'daedVersion':'v2.1.1','sourceSha256':'0'*64,'databaseSha256':'0'*64,'records':{'global':{},'dns':{},'group':{}}})
-    client('import json;from bridge_m4.store import ExtensionStore;ExtensionStore("/var/lib/bridge-m4-client/extensions").commit(json.load(sys.stdin))',ext)
+    if not Path('/var/lib/bridge-m4-client/extensions/current').exists():
+        client('import json;from bridge_m4.store import ExtensionStore;ExtensionStore("/var/lib/bridge-m4-client/extensions").commit(json.load(sys.stdin))',ext)
+    # Only connection credentials are persisted, never the official password.
+    for name,mode,gid in [('attestor.token',0o600,0),('backend.token',0o640,pwd.getpwnam('independent-bridge').pw_gid)]:
+        temp=CFG/(name+'.new')
+        write(temp,token.encode(),mode,gid)
+        os.replace(temp,CFG/name)
+    fd=os.open(CFG,os.O_RDONLY|os.O_DIRECTORY)
+    try:os.fsync(fd)
+    finally:os.close(fd)
 
 
 def apply_initial():

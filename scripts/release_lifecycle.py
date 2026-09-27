@@ -16,11 +16,11 @@ ROOT = Path(__file__).resolve().parents[1]
 CFG = Path('/etc/daed-independent-bridge')
 MANIFEST = CFG / 'install.json'
 CORE = ('daed-api.service', 'bridge-helper.socket', 'bridge-attestor.service',
-        'independent-bridge.service', 'dae.service', 'daed-web.service')
+        'independent-bridge.service', 'dae.service', 'bridge-graphql.service', 'daed-web.service')
 DNS = ('bridge-policy-dns.service', 'bridge-lan-dns.service')
 TIMERS = ('independent-dns-sync.timer', 'independent-policy-sync.timer')
 STOP = (*TIMERS, 'independent-policy-sync.service', 'independent-dns-sync.service',
-        'daed-web.service', 'dae.service', 'independent-bridge.service', 'bridge-attestor.service',
+        'daed-web.service', 'bridge-graphql.service', 'dae.service', 'independent-bridge.service', 'bridge-attestor.service',
         'bridge-helper.socket', 'bridge-helper.service', 'daed-api.service', *DNS)
 DATA = (CFG, Path('/var/lib/bridge-daed'), Path('/var/lib/bridge-m4-client'),
         Path('/var/lib/bridge-m4-attestation'), Path('/var/lib/daed-independent-bridge'),
@@ -136,7 +136,7 @@ def wait_for_management():
 
 def start_management():
     ctl('daemon-reload')
-    units=(*DNS,'daed-api.service','daed-web.service','bridge-helper.socket','independent-bridge.service')
+    units=(*DNS,'daed-api.service','bridge-graphql.service','daed-web.service','bridge-helper.socket','independent-bridge.service')
     ctl('enable',*units)
     ctl('start',*units)
     wait_for_management()
@@ -186,13 +186,13 @@ def stop():
     oneshots = ('independent-policy-sync.service', 'independent-dns-sync.service')
     ctl('stop', *oneshots)
     stopping=tuple(name for name in STOP if name not in TIMERS + oneshots and
-                   (name!='daed-web.service' or Path('/etc/systemd/system/daed-web.service').exists()))
+                   (name not in {'daed-web.service','bridge-graphql.service'} or Path('/etc/systemd/system',name).exists()))
     ctl('stop', *stopping)
     # Official daed can exit 1 during a requested SIGTERM. This is an
     # administrative teardown, not a health result; verify absence of every
     # owned process before clearing its failed status and replacing files.
     for name in STOP:
-        if not name.endswith('.service') or (name=='daed-web.service' and name not in stopping):continue
+        if not name.endswith('.service') or (name in {'daed-web.service','bridge-graphql.service'} and name not in stopping):continue
         fields = dict(line.split('=', 1) for line in
                       ctl('show', name, '--property=ActiveState,MainPID').stdout.decode().splitlines() if '=' in line)
         need(fields.get('MainPID') == '0' and fields.get('ActiveState') in {'inactive', 'failed'}, 'SERVICE_STOP_FAILED:' + name)

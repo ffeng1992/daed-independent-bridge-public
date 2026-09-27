@@ -55,6 +55,13 @@ class M4Controller(Controller):
     def locked(self,value):
         result=super().locked(value)
         if value['action']=='status':
+            active=result.get('activeBundle')
+            if active and not result.get('error'):
+                fd=directory(self.base/'versions'/active,0,0,0o700)
+                try:sealed=load_json(read_at(fd,'manifest.json',0,0,0o400))
+                finally:os.close(fd)
+                check(self.pointer()==active,'SOURCE_CHANGED')
+                result['sourceFingerprint']=sealed['sourceSha256']
             journal=self.journal()
             if journal and journal['phase'] not in {'HEALTHY','ROLLED_BACK','STOPPED'}:
                 result['recoveryBundle']=journal['candidate']

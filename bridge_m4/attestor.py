@@ -12,7 +12,7 @@ from bridge_m2.security import check,directory,read_at,syncdir,write_file
 from .collect import collect
 from .runtime import EXTENSIONS,ENDPOINT,PUBLIC
 from .runtime_bundle import receipt,fingerprints
-from .authority import policy,manifest
+from .authority import policy,manifest,controller
 
 def identity():
     result=subprocess.run(['/usr/bin/systemctl','show','daed-api.service','--property=MainPID,InvocationID,ActiveState'],env=ENV,capture_output=True,check=True,timeout=5)
@@ -60,8 +60,24 @@ def attest():
         os.replace(temp,PUBLIC/'receipt.json');syncdir(PUBLIC)
     finally:os.close(lock)
 
+def observe_kernel():
+    # Separate evidence file: volatile observations must not alter status identity.
+    from .kernel_observations import observe
+    p=policy();state=controller(p).execute({'action':'status'})
+    check(state.get('identityVerified') and state['state']=='running','DAE_IDENTITY')
+    value=observe(state['MainPID']);value['InvocationID']=state['InvocationID']
+    after=controller(p).execute({'action':'status'})
+    check(after.get('identityVerified') and after['MainPID']==state['MainPID'] and
+          after['InvocationID']==state['InvocationID'],'DAE_IDENTITY_CHANGED')
+    temp=PUBLIC/'kernel-observations.next';temp.unlink(missing_ok=True)
+    write_file(temp,canonical(value),0o640);os.chown(temp,0,p['bridgeGid'])
+    os.replace(temp,PUBLIC/'kernel-observations.json');syncdir(PUBLIC)
+
 def main():
     while True:
+        try:observe_kernel()
+        except Exception:
+            print('{"kernelObservation":"unavailable"}',flush=True)
         try:attest();print('{"attestor":"observed"}',flush=True)
         except Exception as exc:
             from .diagnostics import failure

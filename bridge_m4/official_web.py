@@ -34,7 +34,7 @@ http {
         add_header X-Frame-Options DENY always;
         location = / { try_files /index.html =404; }
         location = /graphql {
-            proxy_pass http://127.0.0.1:2024/graphql;
+            proxy_pass http://127.0.0.1:2025/graphql;
             proxy_http_version 1.1;
             proxy_set_header Host 127.0.0.1:2024;
             proxy_set_header Upgrade $http_upgrade;

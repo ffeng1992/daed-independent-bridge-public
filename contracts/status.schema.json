@@ -78,6 +78,10 @@
         "CURRENT_VERSION_INVALID",
         "UNIT_IDENTITY_MISMATCH"
       ]
+    },
+    "sourceFingerprint": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
     }
   },
   "required": [

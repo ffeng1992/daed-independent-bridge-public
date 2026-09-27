@@ -1,7 +1,7 @@
 [Unit]
 Description=Official daed v1.28 static dashboard and loopback GraphQL proxy
-After=network-online.target daed-api.service
-Requires=daed-api.service
+After=network-online.target daed-api.service bridge-graphql.service
+Requires=daed-api.service bridge-graphql.service
 [Service]
 User=independent-bridge
 Group=independent-bridge

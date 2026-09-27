@@ -17,7 +17,7 @@ import hashlib
 import stat
 
 ROOT=Path(__file__).resolve().parents[1]
-UNITS=('dae.service','daed-api.service','bridge-helper.socket','bridge-helper.service','bridge-attestor.service','independent-bridge.service')
+UNITS=('dae.service','daed-api.service','bridge-helper.socket','bridge-helper.service','bridge-attestor.service','independent-bridge.service','bridge-graphql.service')
 PACKAGE_DIRS=('bridge_m1','bridge_m2','bridge_m4','contracts','queries')
 BASE=Path('/var/lib/daed-independent-bridge')
 MANIFEST=Path('/etc/daed-independent-bridge/install.json')
@@ -62,7 +62,7 @@ def payload(production_dns=False,release_profile=False):
             files['/opt/bridge/vendor/'+str(p.relative_to(ROOT/'out/m4-vendor'))]=(p.read_bytes(),0o644)
     for name in ('upstream.lock.json',):files['/opt/bridge/'+name]=((ROOT/name).read_bytes(),0o644)
     for name in UNITS:files['/etc/systemd/system/'+name]=((ROOT/'deployment/m4/units'/name).read_bytes(),0o644)
-    for name,module,call in [('runner','runner','main'),('broker','broker','serve'),('attestor','attestor','main'),('web','web','main')]:
+    for name,module,call in [('runner','runner','main'),('broker','broker','serve'),('attestor','attestor','main'),('web','web','main'),('graphql','graphql_runtime','main')]:
         files['/usr/local/bin/bridge-'+name]=(('import sys\nsys.dont_write_bytecode=True\nsys.path.insert(0,"/opt/bridge/vendor")\nsys.path.insert(0,"/opt/bridge")\nfrom bridge_m4.'+module+' import '+call+'\n'+call+'()\n').encode(),0o755)
     files['/etc/tmpfiles.d/bridge-m4.conf']=(b'd /run/bridge-control 0710 root independent-bridge -\n',0o644)
     lock=json.loads((ROOT/'upstream.lock.json').read_text())

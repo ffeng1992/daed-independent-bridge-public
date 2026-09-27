@@ -176,3 +176,16 @@ bridge/Web使用非root专用用户，helper只管理固定dae.service。
 
 安装一条命令为 `sudo sh install.sh`，首次交互提供自己的网络设置。
 Release 下载并核对 SHA256SUMS 后，同样进入解包目录运行该命令。
+
+### Official Web runtime adapter
+
+The official Web remains on `http://<management-IP>:2023/`. Its GraphQL proxy uses
+loopback-only bridge port 2025; the original API-only backend remains on port 2024.
+Configuration/account operations stay in official daed. Independent DAE control
+uses the existing bridge validation, receipt and helper path. See
+[the runtime compatibility contract](deployment/release/RUNTIME_ADAPTER.md).
+
+**v0.3.0 remains paused:** official standalone DAE v2.1.1 does not expose its
+in-process traffic metrics externally. The adapter reports unsupported equivalent
+telemetry explicitly instead of displaying the API-only core's misleading zeroes.
+PID-owned kernel socket observations are not relabelled as logical relay sessions.

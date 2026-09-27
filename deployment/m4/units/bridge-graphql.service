@@ -1,0 +1,20 @@
+[Unit]
+Description=Independent DAE GraphQL runtime adapter
+After=daed-api.service bridge-helper.socket
+Requires=daed-api.service bridge-helper.socket
+[Service]
+User=independent-bridge
+Group=independent-bridge
+ExecStart=/usr/bin/python3 -I /usr/local/bin/bridge-graphql
+Restart=on-failure
+RestartSec=2s
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+RestrictAddressFamilies=AF_UNIX AF_INET
+CapabilityBoundingSet=
+ReadWritePaths=/var/lib/bridge-m4-client /var/lib/daed-independent-bridge/inbox
+[Install]
+WantedBy=multi-user.target

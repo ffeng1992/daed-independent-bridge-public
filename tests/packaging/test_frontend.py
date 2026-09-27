@@ -57,6 +57,7 @@ class FrontendTests(unittest.TestCase):
     def test_proxy_is_fixed_loopback_and_frontend_tls(self):
         config=configuration('192.0.2.1')
         self.assertIn('listen 192.0.2.1:8444 ssl;',config)
+        self.assertIn('root /opt/bridge-daed-web-entry; try_files /connect.html =404;',config)
         self.assertIn('proxy_pass http://127.0.0.1:2023/graphql;',config)
         self.assertNotIn('listen 192.0.2.1:2023',config)
         for address in ('0; shutdown','example.invalid','192.0.2.1\nroot /;'):

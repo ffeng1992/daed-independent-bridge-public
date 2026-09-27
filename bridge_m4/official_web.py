@@ -31,7 +31,7 @@ http {
         add_header X-Content-Type-Options nosniff always;
         add_header Referrer-Policy no-referrer always;
         add_header X-Frame-Options DENY always;
-        location = / { alias /opt/bridge-daed-web-entry/connect.html; default_type text/html; }
+        location = / { root /opt/bridge-daed-web-entry; try_files /connect.html =404; default_type text/html; }
         location = /connect.js { alias /opt/bridge-daed-web-entry/connect.js; default_type application/javascript; }
         location = /graphql {
             proxy_pass http://127.0.0.1:2023/graphql;

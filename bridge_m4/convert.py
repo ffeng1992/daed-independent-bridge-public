@@ -12,7 +12,7 @@ from .extensions import need,merge,split,statements,validate_record,MODELS,rende
 from .document import parse
 from bridge_m1.common import canonical,digest,ROOT
 
-VERSION='0.2-m4-runtime-model'
+VERSION='0.2-m4-empty-groups'
 FIELDS=json.loads((ROOT/'contracts/global-fields.json').read_text())['fields']
 PROTOCOLS=json.loads((ROOT/'contracts/m4/protocol-models.json').read_text())['target']['entries']
 SCHEMES={s for entry in PROTOCOLS for s in entry['schemes']}
@@ -177,7 +177,10 @@ def normalize(source,extensions):
         members += [n['id'] for n in group['nodes']]
         need(all(i in nodes for i in members),'MISSING_NODE','groups.nodes')
         # Preserve order and remove only identical node IDs, retaining all source bindings in IR.
-        members=list(dict.fromkeys(members));need(bool(members),'EMPTY_GROUP','groups.nodes')
+        members=list(dict.fromkeys(members))
+        # Retain empty groups in source/IR/extensions, but DAE cannot emit them.
+        need(bool(members) or name not in routing['referenceGroups'],
+             'EMPTY_REFERENCED_GROUP','groups.'+name+'.nodes')
         need(group['policy'] in ('fixed','random','min','min_moving_avg','min_avg10'),'UNREVIEWED_POLICY','groups.policy')
         params=group['policyParams']
         need(all(p['key']=='' or re.fullmatch(r'[a-z_]+',p['key']) for p in params),'INVALID_POLICY_PARAMETER','groups.policyParams')
@@ -193,6 +196,7 @@ def emit(ir):
         if node['alias'] in active:lines.append('  '+node['alias']+': '+quote(node['link']))
     lines+=['}','group {']
     for group in ir.groups:
+        if not group['members']:continue
         policy=group['policy']
         if group['params']:policy+='('+', '.join((p['key']+': ' if p['key'] else '')+quote(p['val']) for p in group['params'])+')'
         lines += ['  '+group['name']+' {','    filter: name('+', '.join(quote(x) for x in group['members'])+')','    policy: '+policy]

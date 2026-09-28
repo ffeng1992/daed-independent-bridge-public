@@ -38,7 +38,13 @@ def retained():
 def main():
     passed=False;stage='setup'
     try:
-        if sorted(p.name for p in Path('/sys/class/net').iterdir())!=['lo']:raise RuntimeError('ISOLATION_REQUIRED')
+        interfaces=sorted(p.name for p in Path('/sys/class/net').iterdir())
+        management=None
+        if (EVIDENCE/'browser-enabled').exists():
+            management=next((p.name for p in Path('/sys/class/net').iterdir() if (p/'address').read_text().strip()=='52:54:00:12:34:56'),None)
+            if management is None:raise RuntimeError('MANAGEMENT_NIC_MISSING')
+            run(['ip','addr','add','198.18.0.15/24','dev',management]);run(['ip','link','set',management,'up'])
+        if interfaces!=sorted(['lo']+([management] if management else [])):raise RuntimeError('ISOLATION_REQUIRED')
         run(['ip','link','add','lan0','type','veth','peer','name','client0'])
         run(['ip','addr','add','192.0.2.1/24','dev','lan0']);run(['ip','link','set','lan0','up']);run(['ip','link','set','client0','up'])
         # Fixed in-VM upstream. No public names, credentials, proxy endpoints or egress.
@@ -46,7 +52,7 @@ def main():
         fixture=subprocess.Popen(['python3',str(endpoint)])
         settings=Path('/run/packaging-settings.json')
         settings.write_text(json.dumps({'lanAddress':'192.0.2.1','lanNetwork':'192.0.2.0/24','lanInterface':'lan0',
-            'upstream':'127.0.0.1:15353','dnsName':'health.test.invalid','webAddress':'127.0.0.1'}))
+            'upstream':'127.0.0.1:15353','dnsName':'health.test.invalid','webAddress':'198.18.0.15' if management else '127.0.0.1'}))
         time.sleep(1)
         stages=[('install',['sh','install.sh','--settings',str(settings)]),
                 ('health-install',['sh','health-check.sh']),('repeat-install',['sh','install.sh']),
@@ -58,6 +64,14 @@ def main():
                 stage='official-first-account-and-authorization'
                 prepare_user()
                 checks.append({'case':stage,'passed':True})
+                if (EVIDENCE/'ui-matrix-enabled').exists():
+                    stage='ui-field-global-probe'
+                    from integration.ui_matrix.global_probe import run as global_probe
+                    global_probe()
+                    checks.append({'case':stage,'passed':True})
+                stage='runtime-crud-and-control'
+                from integration.packaging.runtime_acceptance import run as runtime_acceptance
+                runtime_acceptance(checks)
             existing_account()
         # Stop before snapshotting to avoid treating normal SQLite WAL flush as corruption.
         from scripts.release_lifecycle import stop
@@ -81,7 +95,7 @@ def main():
         if isinstance(exc,subprocess.CalledProcessError):
             (EVIDENCE/'packaging-error.log').write_bytes(exc.stdout[-8000:]+exc.stderr[-8000:])
         else:(EVIDENCE/'packaging-error.log').write_text(str(exc))
-        for unit in ('daed-web','dae','daed-api','independent-bridge','bridge-helper','bridge-attestor','bridge-policy-dns','bridge-lan-dns','independent-dns-sync','independent-policy-sync'):
+        for unit in ('daed-web','bridge-graphql','dae','daed-api','independent-bridge','bridge-helper','bridge-attestor','bridge-policy-dns','bridge-lan-dns','independent-dns-sync','independent-policy-sync'):
             r=subprocess.run(['journalctl','-u',unit,'--no-pager','-n','20'],capture_output=True)
             (EVIDENCE/(unit+'.log')).write_bytes(r.stdout)
     finally:

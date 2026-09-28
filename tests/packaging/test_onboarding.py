@@ -70,7 +70,9 @@ class OnboardingTests(unittest.TestCase):
     def test_official_interface_query_has_unprivileged_netlink(self):
         unit=(ROOT/'deployment/m4/units/daed-api.service').read_text()
         self.assertIn('AF_NETLINK',unit)
-        self.assertIn('CapabilityBoundingSet=\n',unit)
+        self.assertIn('CapabilityBoundingSet=CAP_NET_RAW\n',unit)
+        self.assertIn('AmbientCapabilities=CAP_NET_RAW\n',unit)
+        self.assertNotIn('CAP_NET_ADMIN',unit)
         self.assertIn('User=bridge-daed',unit)
         self.assertIn('--api-only',unit)
 

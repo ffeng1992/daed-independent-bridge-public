@@ -113,6 +113,11 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             from .diagnostics import failure
             failure("web",exc)
+            from .extensions import empty_group_diagnostic
+            diagnostic=empty_group_diagnostic(exc)
+            if diagnostic is not None:
+                self.reply(409,diagnostic)
+                return
             # Domain codes contain no source values; upstream messages never reach clients.
             allowed={'SOURCE_CHANGED','EXTENSION_CHANGED','PREVIEW_CONFLICT','EXTENSION_CAS_CONFLICT','VALIDATION_REQUIRED','VALIDATE_FAILED','OLD_SOURCE','SOURCE_EXPIRED','STATUS_REJECTED','UNMANAGED_SERVICE_ACTIVE','MANUAL_INTERVENTION_REQUIRED','UNIT_IDENTITY_MISMATCH'}
             code=str(exc) if isinstance(exc,Denied) and str(exc) in allowed else 'REQUEST_FAILED'

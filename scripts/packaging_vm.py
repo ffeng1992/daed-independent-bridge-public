@@ -7,11 +7,12 @@ def check(ok,code):
     if not ok:raise RuntimeError(code)
 def run(*args):subprocess.run(args,check=True,cwd=ROOT)
 
-def run_vm(*, local_packaging=False):
+def run_vm(*, local_packaging=False, browser=False, ui_matrix=False):
     bootstrap='integration/packaging/bootstrap.sh'
     check(not OUT.exists() and not EVIDENCE.exists(),'FRESH_PACKAGING_VM_REQUIRED')
     OUT.mkdir(parents=True,exist_ok=True)
     EVIDENCE.mkdir(parents=True,exist_ok=True)
+    if ui_matrix:(EVIDENCE/'ui-matrix-enabled').touch()
     check(os.environ.get('GITHUB_ACTIONS')=='true' or (local_packaging and bootstrap=='integration/packaging/bootstrap.sh'),'DISPOSABLE_CI_ONLY')
     lock=json.loads((ROOT/'integration/packaging/vm.lock.json').read_text())
     image=OUT/'base.qcow2'
@@ -50,23 +51,31 @@ def run_vm(*, local_packaging=False):
       - [bash, /opt/bridge/integration/packaging/bootstrap.sh]
     '''
     (OUT/'user-data').write_text(user_data);(OUT/'meta-data').write_text('instance-id: bridge-packaging-disposable\nlocal-hostname: bridge-packaging\n')
+    if browser:
+        (OUT/'network-config').write_text('version: 2\nethernets:\n  bootstrap:\n    match: {macaddress: "52:54:00:12:34:55"}\n    dhcp4: true\n  management:\n    match: {macaddress: "52:54:00:12:34:56"}\n    dhcp4: false\n    dhcp6: false\n    optional: true\n')
     if local_packaging and sys.platform=='darwin':
         seed=OUT/'cidata';seed.mkdir()
         shutil.copy(OUT/'user-data',seed/'user-data');shutil.copy(OUT/'meta-data',seed/'meta-data')
+        if browser:shutil.copy(OUT/'network-config',seed/'network-config')
         run('hdiutil','makehybrid','-iso','-joliet','-default-volume-name','cidata','-o',str(OUT/'seed.iso'),str(seed))
         (OUT/'seed.iso').rename(OUT/'seed.img')
     else:
-        run('cloud-localds',str(OUT/'seed.img'),str(OUT/'user-data'),str(OUT/'meta-data'))
+        run('cloud-localds',*(['--network-config',str(OUT/'network-config')] if browser else []),str(OUT/'seed.img'),str(OUT/'user-data'),str(OUT/'meta-data'))
     qmp=OUT/'qmp.sock'
+    management=[]
+    if browser:
+        check(local_packaging,'BROWSER_LOCAL_ONLY')
+        (EVIDENCE/'browser-enabled').touch()
+        management=['-netdev','user,id=management,net=198.18.0.0/24,restrict=on,hostfwd=tcp:127.0.0.1:12023-198.18.0.15:2023','-device','virtio-net-pci,netdev=management,mac=52:54:00:12:34:56']
     accelerator='kvm' if os.access('/dev/kvm',os.R_OK|os.W_OK) else 'tcg'
     (EVIDENCE/'vm.json').write_text(json.dumps(dict(lock,accelerator=accelerator,bootstrapNetwork='removed-before-probe',testNetwork='guest-only'),indent=2))
     with (EVIDENCE/'serial.log').open('wb') as serial:
         proc=subprocess.Popen(['qemu-system-x86_64','-accel',accelerator,'-cpu','host' if accelerator=='kvm' else 'max','-m','4096','-smp','2','-nographic',
             '-drive',f'file={OUT}/disk.qcow2,if=virtio,format=qcow2','-drive',f'file={OUT}/seed.img,if=virtio,format=raw',
-            '-netdev','user,id=bootstrap','-device','virtio-net-pci,netdev=bootstrap,id=bootstrap-nic',
+            '-netdev','user,id=bootstrap','-device','virtio-net-pci,netdev=bootstrap,id=bootstrap-nic,mac=52:54:00:12:34:55',
             '-virtfs',f'local,path={source},mount_tag=project,security_model=none,readonly=on',
             '-virtfs',f'local,path={EVIDENCE},mount_tag=evidence,security_model=none',
-            '-qmp',f'unix:{qmp},server=on,wait=off'],stdout=serial,stderr=subprocess.STDOUT)
+            '-qmp',f'unix:{qmp},server=on,wait=off',*management],stdout=serial,stderr=subprocess.STDOUT)
         try:
             deadline=time.monotonic()+(2400 if local_packaging else 900)
             while not (EVIDENCE/'bootstrap-ready').exists():
@@ -98,6 +107,8 @@ def run_vm(*, local_packaging=False):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--local',action='store_true')
+    parser.add_argument('--browser',action='store_true')
+    parser.add_argument('--ui-matrix',action='store_true')
     args=parser.parse_args()
-    run_vm(local_packaging=args.local)
+    run_vm(local_packaging=args.local,browser=args.browser,ui_matrix=args.ui_matrix)
 if __name__=='__main__':main()

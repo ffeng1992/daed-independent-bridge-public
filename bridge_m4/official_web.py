@@ -39,7 +39,8 @@ http {
             proxy_set_header Host 127.0.0.1:2024;
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection $connection_upgrade;
-            proxy_read_timeout 60s;
+            # Run performs collection, validation and controlled apply before replying.
+            proxy_read_timeout 180s;
             client_max_body_size 16m;
         }
         location / { try_files $uri =404; }

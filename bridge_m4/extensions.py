@@ -16,6 +16,15 @@ class CompatibilityError(ValueError):
         self.code, self.path = code, path
         super().__init__(code + ':' + path)  # Never include source values.
 
+def empty_group_diagnostic(exc):
+    """Expose only this authenticated configuration error, never arbitrary values."""
+    if not isinstance(exc, CompatibilityError) or exc.code != 'EMPTY_REFERENCED_GROUP':
+        return None
+    match = re.fullmatch(r'groups\.([A-Za-z_][A-Za-z0-9_.-]*)\.nodes', exc.path)
+    if match is None:
+        return None
+    return {'error': exc.code, 'groupName': match[1], 'fieldPath': exc.path}
+
 def need(condition, code, path):
     if not condition:
         raise CompatibilityError(code, path)

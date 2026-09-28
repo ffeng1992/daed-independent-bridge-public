@@ -1,0 +1,22 @@
+{
+  "write": {
+    "tproxyPortProtect": false
+  },
+  "mutationReadback": {
+    "tproxyPortProtect": true
+  },
+  "queryReadback": {
+    "tproxyPortProtect": true
+  },
+  "doubleSnapshot": {
+    "method": "two-complete-normalized-fingerprints",
+    "beforeSha256": "64ff4e1a29f440df7359f4e6495cb8702abe425ba20e5d23b35e82de5e40df75",
+    "afterSha256": "64ff4e1a29f440df7359f4e6495cb8702abe425ba20e5d23b35e82de5e40df75",
+    "attempts": 1,
+    "pages": [
+      1,
+      1
+    ],
+    "transactional": false
+  }
+}

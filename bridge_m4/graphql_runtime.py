@@ -101,8 +101,11 @@ class Adapter:
         except GraphQLError:
             return self.forward(raw, authorization)
         operation = get_operation_ast(document, value.get('operationName'))
-        if operation is None or not touches_runtime(document, operation, self.schema):
+        if operation is None:
             return self.forward(raw, authorization)
+        if not touches_runtime(document, operation, self.schema):
+            from .graphql_config import preserve_create_false
+            return preserve_create_false(raw, authorization, self.forward)
         errors = validate(self.schema, document)
         if errors:
             return json.dumps({'errors': [e.formatted for e in errors]}).encode()
@@ -144,7 +147,8 @@ class Adapter:
                     op.selection_set = SelectionSetNode(selections=(FieldNode(name=NameNode(value='general'), selection_set=op.selection_set),))
                     query = print_ast(sub)
                 body = json.dumps({'query': query, 'variables': info.variable_values}).encode()
-                response = json.loads(self.forward(body, authorization))
+                from .graphql_config import preserve_create_false
+                response = json.loads(preserve_create_false(body, authorization, self.forward))
                 if response.get('errors'):
                     raise GraphQLError(response['errors'][0]['message'])
                 data = response['data']
@@ -229,6 +233,13 @@ class Controls:
                 if s.get('activeBundle') and s.get('sourceFingerprint') == preview['sourceFingerprint'] and s['state'] == 'stopped':
                     result = {'result': self.runtime.action('start', s['activeBundle'])}
                 else:
+                    # Existing helper apply deliberately requires a healthy predecessor.
+                    # Resume only its verified active bundle after validating the new
+                    # candidate; helper rollback semantics remain unchanged on failure.
+                    if s.get('activeBundle') and s['state'] == 'stopped':
+                        resumed = self.runtime.action('start', s['activeBundle'])
+                        if resumed.get('error') or resumed.get('state') != 'running' or not resumed.get('identityVerified'):
+                            raise RuntimeError('PREVIOUS_START_NOT_CONFIRMED')
                     result = self.runtime.apply(token, preview['previewId'])
                 if result.get('result', {}).get('error'):
                     raise RuntimeError('APPLY_REJECTED')
@@ -239,7 +250,11 @@ class Controls:
                 if s['state'] != 'running' or not s.get('identityVerified'):
                     raise RuntimeError('START_NOT_CONFIRMED')
             return 1
-        except Exception:
+        except Exception as exc:
+            from .extensions import empty_group_diagnostic
+            diagnostic=empty_group_diagnostic(exc)
+            if diagnostic is not None:
+                raise GraphQLError(diagnostic['error'], extensions={'code':diagnostic['error'], 'groupName':diagnostic['groupName'], 'fieldPath':diagnostic['fieldPath']}) from None
             raise GraphQLError('BRIDGE_CONTROL_FAILED', extensions={'code': 'BRIDGE_CONTROL_FAILED'}) from None
 
 

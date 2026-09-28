@@ -30,7 +30,10 @@ class Runtime:
         generation,before=self.store.load()
         source,proof=self.collector(token)
         after,_=self.store.load();check(generation==after,'EXTENSION_CHANGED')
-        return source,proof,before['extensions'],generation
+        from .convert import bind_new_profiles
+        fingerprints(source,before['extensions']) # Validate the sealed extension schema before binding new official profiles.
+        effective=bind_new_profiles(source,before['extensions'])
+        return source,proof,effective,generation
     def preview(self,token):
         with self.lock:
             source,proof,extensions,generation=self.snapshot(token)

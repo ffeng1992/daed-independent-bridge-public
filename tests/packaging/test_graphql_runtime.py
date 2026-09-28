@@ -60,6 +60,14 @@ class AdapterTests(unittest.TestCase):
         self.control.run.assert_not_called();self.assertEqual(len(self.calls),1)
 
 class ControlsTests(unittest.TestCase):
+    def test_empty_referenced_group_is_named_without_control_side_effects(self):
+        from bridge_m4.extensions import CompatibilityError
+        r=Mock();r.status.return_value={'state':'running','activeBundle':'old'}
+        r.preview.side_effect=CompatibilityError('EMPTY_REFERENCED_GROUP','groups.empty_fixture.nodes')
+        with self.assertRaises(GraphQLError) as raised:Controls(r).run('synthetic',False)
+        self.assertEqual(raised.exception.extensions,{'code':'EMPTY_REFERENCED_GROUP','groupName':'empty_fixture','fieldPath':'groups.empty_fixture.nodes'})
+        r.action.assert_not_called();r.apply.assert_not_called();r.validate.assert_not_called()
+
     def test_stop_confirmed(self):
         r=Mock();r.status.return_value={'state':'running','activeBundle':'synthetic'};r.action.return_value={'state':'stopped'}
         self.assertEqual(Controls(r).run('synthetic',True),1);r.action.assert_called_once_with('stop','synthetic')
@@ -71,6 +79,25 @@ class ControlsTests(unittest.TestCase):
         r.preview.return_value={'previewId':'p','sourceFingerprint':'s'};r.action.return_value={'state':'running'}
         self.assertEqual(Controls(r).run('synthetic',False),1)
         r.action.assert_called_once_with('start','b');r.apply.assert_not_called();r.validate.assert_called_once_with('p')
+    def test_changed_stopped_bundle_resumes_verified_predecessor_before_apply(self):
+        r=Mock();r.status.side_effect=[{'state':'stopped','activeBundle':'old','sourceFingerprint':'old-source'},{'state':'running','identityVerified':True},{'state':'running','identityVerified':True}]
+        r.preview.return_value={'previewId':'p','sourceFingerprint':'new-source'}
+        r.action.return_value={'state':'running','identityVerified':True};r.apply.return_value={'result':{'result':'APPLIED'}}
+        self.assertEqual(Controls(r).run('synthetic',False),1)
+        from unittest.mock import call
+        relevant=[c for c in r.mock_calls if c[0] in ('validate','action','apply')]
+        self.assertEqual(relevant,[call.validate('p'),call.action('start','old'),call.apply('synthetic','p')])
+    def test_failed_predecessor_resume_never_applies(self):
+        for result in ({'error':'BUSY'},{'state':'stopped'},{'state':'running','identityVerified':False}):
+            r=Mock();r.status.return_value={'state':'stopped','activeBundle':'old','sourceFingerprint':'old-source'}
+            r.preview.return_value={'previewId':'p','sourceFingerprint':'new-source'};r.action.return_value=result
+            with self.assertRaises(GraphQLError):Controls(r).run('synthetic',False)
+            r.apply.assert_not_called()
+    def test_invalid_candidate_never_resumes_stopped_predecessor(self):
+        r=Mock();r.status.return_value={'state':'stopped','activeBundle':'old'}
+        r.preview.return_value={'previewId':'p','sourceFingerprint':'new-source'};r.validate.side_effect=RuntimeError('VALIDATE_FAILED')
+        with self.assertRaises(GraphQLError):Controls(r).run('synthetic',False)
+        r.action.assert_not_called();r.apply.assert_not_called()
     def test_receipt_failure_not_bypassed(self):
         r=Mock();r.status.return_value={'state':'running','activeBundle':'b'};r.preview.return_value={'previewId':'p','sourceFingerprint':'s'};r.apply.side_effect=RuntimeError('receipt')
         with self.assertRaises(GraphQLError):Controls(r).run('synthetic',False)

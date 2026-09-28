@@ -47,6 +47,9 @@ def attest():
     source,proof=collect(HTTPReader(ENDPOINT,token))
     after=identity();next_generation,_=extensions(p)
     check(before==after and generation==next_generation,'SOURCE_CHANGED')
+    from .convert import bind_new_profiles
+    fingerprints(source,ext)
+    ext=bind_new_profiles(source,ext)
     now=int(time.time());pins=fingerprints(source,ext)
     if p['receipt'] and all(p['receipt'].get(k)==v for k,v in pins.items()) and p['receipt'].get('expiresAt',0)-now>=60:return
     lock=os.open(BASE/'apply.lock',os.O_RDWR|os.O_NOFOLLOW)

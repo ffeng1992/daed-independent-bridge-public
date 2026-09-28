@@ -18,7 +18,7 @@ internal run resolver. Invalid or expired receipts still refuse application.
 Run/Stop intentionally affects connectivity; production smoke checks do not stop
 a working data plane merely to demonstrate a button.
 
-## Telemetry limitation — release remains blocked
+## Known limitation: Traffic Overview
 
 Official DAE v2.1.1 has in-process `SnapshotRuntimeStats`, but its standalone CLI
 has no external interface exposing it. See upstream
@@ -38,10 +38,17 @@ GraphQL error `UNSUPPORTED_EQUIVALENT_METRICS`, with safe PID-owned observations
 not the API-only core's zero values. uploadRate, downloadRate, uploadTotal,
 downloadTotal, activeConnections, udpSessions and 1m/10m/30m/1h histories are **not
 supported as equivalent official metrics**. No fake samples are generated.
-This is not full runtime dashboard acceptance; v0.3.0 must not be released on the
-basis of the adapter alone. Official binaries and all pinned static assets remain
+This is the accepted `KNOWN_LIMITATION_TRAFFIC_OVERVIEW`. It does not waive
+acceptance of other configuration and control functions. Official binaries and all pinned static assets remain
 unchanged.
 
 The original dashboard may display its own default zero placeholders after this
 GraphQL error. Those placeholders are not measured telemetry and do not count as
 a passing dashboard check. The bridge does not modify upstream UI behavior.
+
+New official Config/DNS/Group profiles receive deterministic extension records from their API-effective fields. Existing sealed extension records are preserved. Preview and the independent attestor derive the same effective records; the resulting receipt and bundle cover their hashes without modifying the official database.
+
+When Run follows Stop with edited configuration, the bridge validates the new
+candidate, resumes the verified active bundle, then applies the new bundle through
+the existing helper. A failed apply reports failure and preserves the helper
+rollback result; the previous verified configuration may remain running.

@@ -185,7 +185,32 @@ Configuration/account operations stay in official daed. Independent DAE control
 uses the existing bridge validation, receipt and helper path. See
 [the runtime compatibility contract](deployment/release/RUNTIME_ADAPTER.md).
 
-**v0.3.0 remains paused:** official standalone DAE v2.1.1 does not expose its
-in-process traffic metrics externally. The adapter reports unsupported equivalent
-telemetry explicitly instead of displaying the API-only core's misleading zeroes.
-PID-owned kernel socket observations are not relabelled as logical relay sessions.
+### Known Limitations
+
+**KNOWN_LIMITATION_TRAFFIC_OVERVIEW — Traffic Overview:**
+In standalone official DAE mode, official DAE v2.1.1 does not expose
+an external equivalent runtime metrics API. The original Daed Web
+Traffic Overview therefore shows zero values. These values must not
+be interpreted as real traffic statistics.
+
+This limitation alone is not a release blocker. The completed
+[official Web field matrix](docs/WEB-FIELD-MATRIX.md) retains 18 upstream failures;
+they are not represented as successful runtime behavior. The two bridge-owned
+release blockers have separate targeted acceptance. Official daed, official
+Daed Web and official DAE remain unmodified.
+Daed Web uses port 2023, the API backend binds only `127.0.0.1:2024`, and
+Bridge Web uses HTTPS port 8443.
+
+### Empty groups and node latency permissions
+
+An unreferenced empty group remains in official daed, the collected snapshot and
+bridge extension state, but is omitted from the emitted DAE configuration.
+Referencing it from the selected routing profile rejects preview/apply with
+`EMPTY_REFERENCED_GROUP` and its group name, preserving the active bundle.
+Adding members makes the group eligible for normal validation and application.
+
+On Debian 13 / Linux 6.12, `daed-api.service` uses only `CAP_NET_RAW` in its
+capability bounding and ambient sets for the official node latency probe's
+`SO_MARK`. `NoNewPrivileges` and the other sandbox restrictions remain enabled;
+`CAP_NET_ADMIN` and `CAP_BPF` are not granted. Official upstream binaries and Web
+assets remain unmodified.

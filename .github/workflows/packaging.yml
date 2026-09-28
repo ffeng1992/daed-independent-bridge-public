@@ -26,10 +26,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
+      - name: Locked test dependencies
+        run: python3 -m pip install --require-hashes -r deployment/m4/requirements.lock
       - name: Shell syntax and lifecycle checks
         run: |
           for script in install.sh upgrade.sh uninstall.sh health-check.sh; do sh -n "$script"; done
-          python3 -m unittest tests.packaging.test_lifecycle tests.packaging.test_dns tests.m4.test_install_transaction tests.m4.test_package tests.m4.test_install_payload tests.packaging.test_export tests.packaging.test_frontend tests.packaging.test_onboarding -v
+          python3 -m unittest tests.packaging.test_lifecycle tests.packaging.test_dns tests.m4.test_install_transaction tests.m4.test_package tests.m4.test_install_payload tests.packaging.test_export tests.packaging.test_frontend tests.packaging.test_onboarding tests.packaging.test_graphql_runtime tests.m4.test_runtime tests.m4.test_runtime_bundle tests.m4.test_empty_groups -v
           git diff --exit-code
       - name: Scope of evidence
         if: always()

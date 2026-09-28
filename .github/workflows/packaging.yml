@@ -31,7 +31,8 @@ jobs:
         with:
           python-version: "3.13"
       - name: Locked test dependencies
-        run: python3 -m pip install --only-binary=:all: --require-hashes -r deployment/m4/requirements.lock
+        run: |
+          python3 -m pip install --only-binary=:all: --require-hashes -r deployment/m4/requirements.lock
       - name: Shell syntax and lifecycle checks
         run: |
           for script in install.sh upgrade.sh uninstall.sh health-check.sh; do sh -n "$script"; done

@@ -145,6 +145,7 @@
   "scripts/release_lifecycle.py",
   "scripts/release_payload.py",
   "scripts/release_prepare.py",
+  "scripts/release_replace.py",
   "scripts/release_setup.py",
   "scripts/release_web_health.py",
   "tests/fixtures/ui_matrix/create-config-false.json",
@@ -167,6 +168,7 @@
   "tests/packaging/test_lifecycle.py",
   "tests/packaging/test_matrix_listener.py",
   "tests/packaging/test_onboarding.py",
+  "tests/packaging/test_replace_existing.py",
   "uninstall.sh",
   "upgrade.sh",
   "upstream.lock.json"

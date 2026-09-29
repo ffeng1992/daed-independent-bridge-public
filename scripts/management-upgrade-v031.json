@@ -1,0 +1,20 @@
+{
+  "baseline": "v0.3.1",
+  "files": {
+    "/opt/bridge/bridge_m4/attestor.py": "43f72d89403c3f3b5bd70084820b45eeb4a3527ae160e83977fbc8131d916171",
+    "/opt/bridge/bridge_m4/convert.py": "67d3330f3272d5d206e6a2cfc9c3e8d6ac12e10e3b1642a95027b89a448497d1",
+    "/opt/bridge/bridge_m4/extensions.py": "55137494ece258604dd81fb6e81c4bd858981e61b7a812f0f7283b99707cad9c",
+    "/opt/bridge/bridge_m4/graphql_runtime.py": "717ac2593be1035bd3473d618e6a590741ebfd505cb5a17e748a8e575931034b",
+    "/opt/bridge/bridge_m4/migrate.py": "abe65edf3ddac5e80e5d20a1aca3987ec1917f4cf301bf96be04a075fbee2e21",
+    "/opt/bridge/bridge_m4/runtime.py": "551f171d43658e2d2f4c7c8566c78c71c9bdbd865253f6c4fc903672c47346b5",
+    "/opt/bridge/bridge_m4/runtime_bundle.py": "e1241dd6ed1ac445b6b5550ca1dfbc3bde75195f24b97b4ce08f8fa611586f70",
+    "/opt/bridge/bridge_m4/runtime_models.py": "406f9734e6013e1dbd90b20ec41be4de76ef3ff2eb44a2e6cf1d99f916b43452",
+    "/opt/bridge/bridge_m4/store.py": "3bf3b315c9f90a2563a210d4d185e37eb42809f7ad4df304cbbcb7902dd38bb3",
+    "/opt/bridge/bridge_m4/upstream_contracts.py": null,
+    "/opt/bridge/bridge_m4/validation.py": "5b2a9c1b0578b477113978342cfa705a3b55846d04c753407af2bfb8e4fe9137",
+    "/opt/bridge/bridge_m4/web.py": "8ea931b8a25060a65dc6e77e1d1e818b8674fd04a06414127710f3ad6d7aeacc",
+    "/opt/bridge/bridge_m4/web/app.js": "560dcf6c45e577fd62f2749e41552ce6e47d8ae2519357850ad67345f6baf255",
+    "/opt/bridge/contracts/m4/extension-record-v1.json": null
+  },
+  "sourceCommit": "8b445952e44cb894fd4f59505d0bc00f8a05bfb1"
+}

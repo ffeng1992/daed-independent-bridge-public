@@ -8,13 +8,14 @@ from dataclasses import dataclass
 import json
 import re
 from decimal import Decimal
-from .extensions import need,merge,split,statements,validate_record,MODELS,render_value
+from .extensions import need,merge,split,statements,validate_record,render_value
+from .upstream_contracts import BRIDGE_FORMAT, DAED_VERSION, SOURCE_MODELS, TARGET_PROTOCOLS
 from .document import parse
 from bridge_m1.common import canonical,digest,ROOT
 
-VERSION='0.2-m4-empty-groups'
+VERSION=BRIDGE_FORMAT
 FIELDS=json.loads((ROOT/'contracts/global-fields.json').read_text())['fields']
-PROTOCOLS=json.loads((ROOT/'contracts/m4/protocol-models.json').read_text())['target']['entries']
+PROTOCOLS=TARGET_PROTOCOLS
 SCHEMES={s for entry in PROTOCOLS for s in entry['schemes']}
 PROTOCOL_LABELS=SCHEMES|{s for entry in PROTOCOLS for s in entry['protocolLabels']}
 
@@ -40,7 +41,7 @@ def global_document(config,record):
     for key,start,end,kind in statements(view,'global'):
         need(kind==':','INVALID_GLOBAL_FIELD','global.'+key)
         original[key]=decode(view[start:end].split(':',1)[1]);spans[key]=(start,end)
-    specs=MODELS['source']['models']['Global']
+    specs=SOURCE_MODELS['Global']
     need(set(config['global'])=={f['graphql'] for f in FIELDS},'GLOBAL_SCHEMA_DRIFT','global')
     replacements=[];additions=[];changes=[]
     for field in FIELDS:
@@ -127,7 +128,7 @@ def bind_new_profiles(source,extensions):
 
 def normalize(source,extensions):
     metadata=source['metadata']
-    need(extensions['daedVersion']=='v2.1.1','VERSION_MISMATCH','extensions')
+    need(extensions['daedVersion']==DAED_VERSION,'VERSION_MISMATCH','extensions')
     selected={}
     for kind in ('configs','dnss','routings'):
         active=[o for o in metadata[kind] if o['selected']]

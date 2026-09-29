@@ -7,6 +7,7 @@ from pathlib import Path
 import stat
 import tempfile
 from .extensions import need,validate_record,extension_specs,split,merge,scalar,render_value
+from .upstream_contracts import CONFIG, LEGACY_RECORD, same_section_contract
 from bridge_m1.common import canonical
 from .runtime_models import model
 
@@ -59,6 +60,9 @@ class ExtensionStore:
             specs=extension_specs(section);need(field in specs,'EXTENSION_OWNERSHIP_CONFLICT','$')
             need(isinstance(state,dict) and type(state.get('present')) is bool and set(state)==({'present','value'} if state['present'] else {'present'}),'INVALID_PRESENCE_STATE','$')
             record=current['extensions']['records'][section][profile];view=validate_record(record,section)
+            if record['schemaVersion']==1:
+                need(same_section_contract(section,LEGACY_RECORD,CONFIG),
+                     'EXTENSION_CONTRACT_CONVERSION_REQUIRED',section)
             fields=json.loads(json.dumps(record['fields']));fields[field]=state
             lines=[]
             for key,entry in sorted(fields.items()):
@@ -73,3 +77,22 @@ class ExtensionStore:
             end=view.rfind('}');_,updated=split(view[:end].rstrip()+'\n'+''.join(lines)+view[end:],section)
             current['extensions']['records'][section][profile]=updated
             return self._publish({'parent':ident,'extensions':current['extensions'],'change':{'section':section,'profile':profile,'field':field,'state':state}})
+
+    def bind_profiles(self, source, expected):
+        """Persist only profiles proved present in a complete official snapshot."""
+        from .convert import bind_new_profiles
+        from .runtime_bundle import fingerprints
+        fd=os.open(self.root/'lock',os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW,0o600)
+        with os.fdopen(fd,'r+') as lock:
+            st=os.fstat(lock.fileno())
+            need(stat.S_ISREG(st.st_mode) and st.st_nlink==1 and st.st_uid==os.getuid()
+                 and stat.S_IMODE(st.st_mode)==0o600,'UNSAFE_EXTENSION_FILE','$')
+            fcntl.flock(lock,fcntl.LOCK_EX)
+            ident,current=self.load()
+            need(ident==expected,'EXTENSION_CAS_CONFLICT','$')
+            fingerprints(source,current['extensions'])
+            bound=bind_new_profiles(source,current['extensions'])
+            if bound==current['extensions']:
+                return ident,False
+            return self._publish({'parent':ident,'extensions':bound,
+                                  'change':{'action':'bind-official-profiles'}}),True

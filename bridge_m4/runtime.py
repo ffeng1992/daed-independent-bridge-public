@@ -77,8 +77,8 @@ class Runtime:
     def validate(self,identity):
         with self.lock:
             pending=self.require_preview(identity)
-            lock=json.loads(Path('/opt/bridge/upstream.lock.json').read_text())
-            expected=next(x['sha256'] for x in lock['components']['dae']['archive_members'] if x['path']=='dae-linux-x86_64')
+            from .upstream_contracts import official_member_sha
+            expected=official_member_sha('dae','dae-linux-x86_64')
             from .validation import validate
             validate(pending['directory']/'candidate.dae',expected)
             pending['validated']=True
@@ -109,6 +109,14 @@ class Runtime:
     def extensions(self):
         generation,value=self.store.load()
         return {'generation':generation,'records':{section:{ident:record['fields'] for ident,record in records.items()} for section,records in value['extensions']['records'].items()}}
+    def bind_extensions(self,token):
+        with self.lock:
+            generation,_=self.store.load()
+            source,_=self.collector(token)
+            latest,_=self.store.load();check(latest==generation,'EXTENSION_CHANGED')
+            bound,changed=self.store.bind_profiles(source,generation)
+            if changed:self.pending=None
+            return {'generation':bound,'changed':changed}
     def edit(self,value):
         check(type(value) is dict and set(value)=={'expected','section','profile','field','state'},'EXTENSION_REQUEST')
         with self.lock:

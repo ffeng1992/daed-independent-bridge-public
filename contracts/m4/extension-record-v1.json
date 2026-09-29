@@ -1,0 +1,849 @@
+{
+  "changes": [
+    {
+      "field": "disable_thp",
+      "kind": "added",
+      "section": "Global",
+      "source": null,
+      "target": {
+        "default": "false",
+        "repeatable": false,
+        "required": false,
+        "type": "bool"
+      }
+    },
+    {
+      "field": "auto_sniff_punt",
+      "kind": "added",
+      "section": "Global",
+      "source": null,
+      "target": {
+        "default": "true",
+        "repeatable": false,
+        "required": false,
+        "type": "bool"
+      }
+    },
+    {
+      "field": "bpf_conn_state_map_size",
+      "kind": "added",
+      "section": "Global",
+      "source": null,
+      "target": {
+        "default": "262144",
+        "repeatable": false,
+        "required": false,
+        "type": "uint32"
+      }
+    },
+    {
+      "field": "optimistic_stale_reply_ttl",
+      "kind": "added",
+      "section": "Dns",
+      "source": null,
+      "target": {
+        "default": "30",
+        "repeatable": false,
+        "required": false,
+        "type": "int"
+      }
+    },
+    {
+      "field": "max_cache_size",
+      "kind": "changed",
+      "section": "Dns",
+      "source": {
+        "default": "0",
+        "repeatable": false,
+        "required": false,
+        "type": "int"
+      },
+      "target": {
+        "default": "65536",
+        "repeatable": false,
+        "required": false,
+        "type": "int"
+      }
+    },
+    {
+      "field": "imitate",
+      "kind": "removed",
+      "section": "Utls",
+      "source": {
+        "default": null,
+        "repeatable": false,
+        "required": false,
+        "type": "string"
+      },
+      "target": null
+    }
+  ],
+  "schemaVersion": 1,
+  "scope": "All tagged config.go structs; parser, protocol, policy and runtime semantic audit is separate. Utls is unreachable from Config.",
+  "source": {
+    "configSha256": "058dac3c41779973108d79acb33eb7fe57a3d3f060da5b415e9c9fcb5995007b",
+    "coreCommit": "85a1fc3c06e3765d143c868ba97ecd0be2aab4ea",
+    "daed": "v2.1.1",
+    "models": {
+      "Config": {
+        "dns": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "Dns"
+        },
+        "global": {
+          "default": null,
+          "repeatable": false,
+          "required": true,
+          "type": "Global"
+        },
+        "group": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "[]Group"
+        },
+        "node": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "[]KeyableString"
+        },
+        "routing": {
+          "default": null,
+          "repeatable": false,
+          "required": true,
+          "type": "Routing"
+        },
+        "subscription": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "[]KeyableString"
+        }
+      },
+      "Dns": {
+        "bind": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "string"
+        },
+        "fixed_domain_ttl": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "[]KeyableString"
+        },
+        "ipversion_prefer": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "int"
+        },
+        "max_cache_size": {
+          "default": "0",
+          "repeatable": false,
+          "required": false,
+          "type": "int"
+        },
+        "optimistic_cache": {
+          "default": "true",
+          "repeatable": false,
+          "required": false,
+          "type": "bool"
+        },
+        "optimistic_cache_ttl": {
+          "default": "60",
+          "repeatable": false,
+          "required": false,
+          "type": "int"
+        },
+        "routing": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "DnsRouting"
+        },
+        "upstream": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "[]KeyableString"
+        }
+      },
+      "DnsRequestRouting": {
+        "fallback": {
+          "default": null,
+          "repeatable": false,
+          "required": true,
+          "type": "FunctionOrString"
+        }
+      },
+      "DnsResponseRouting": {
+        "fallback": {
+          "default": null,
+          "repeatable": false,
+          "required": true,
+          "type": "FunctionOrString"
+        }
+      },
+      "DnsRouting": {
+        "request": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "DnsRequestRouting"
+        },
+        "response": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "DnsResponseRouting"
+        }
+      },
+      "Global": {
+        "allow_insecure": {
+          "default": "false",
+          "repeatable": false,
+          "required": false,
+          "type": "bool"
+        },
+        "auto_config_firewall_rule": {
+          "default": "false",
+          "repeatable": false,
+          "required": false,
+          "type": "bool"
+        },
+        "auto_config_kernel_parameter": {
+          "default": "false",
+          "repeatable": false,
+          "required": false,
+          "type": "bool"
+        },
+        "bandwidth_max_rx": {
+          "default": "0",
+          "repeatable": false,
+          "required": false,
+          "type": "string"
+        },
+        "bandwidth_max_tx": {
+          "default": "0",
+          "repeatable": false,
+          "required": false,
+          "type": "string"
+        },
+        "bootstrap_resolver": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "string"
+        },
+        "check_interval": {
+          "default": "30s",
+          "repeatable": false,
+          "required": false,
+          "type": "time.Duration"
+        },
+        "check_tolerance": {
+          "default": "0",
+          "repeatable": false,
+          "required": false,
+          "type": "time.Duration"
+        },
+        "dial_mode": {
+          "default": "domain",
+          "repeatable": false,
+          "required": false,
+          "type": "string"
+        },
+        "disable_waiting_network": {
+          "default": "false",
+          "repeatable": false,
+          "required": false,
+          "type": "bool"
+        },
+        "enable_local_tcp_fast_redirect": {
+          "default": "false",
+          "repeatable": false,
+          "required": false,
+          "type": "bool"
+        },
+        "fallback_resolver": {
+          "default": "8.8.8.8:53",
+          "repeatable": false,
+          "required": false,
+          "type": "string"
+        },
+        "lan_interface": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "[]string"
+        },
+        "log_level": {
+          "default": "info",
+          "repeatable": false,
+          "required": false,
+          "type": "string"
+        },
+        "mptcp": {
+          "default": "false",
+          "repeatable": false,
+          "required": false,
+          "type": "bool"
+        },
+        "pprof_port": {
+          "default": "0",
+          "repeatable": false,
+          "required": false,
+          "type": "uint16"
+        },
+        "sniffing_timeout": {
+          "default": "30ms",
+          "repeatable": false,
+          "required": false,
+          "type": "time.Duration"
+        },
+        "so_mark_from_dae": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "uint32"
+        },
+        "so_mark_from_dae_set": {
+          "configurationKeyAccepted": false,
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "role": "internal-presence-metadata-for-so_mark_from_dae",
+          "type": "bool"
+        },
+        "tcp_check_http_method": {
+          "default": "HEAD",
+          "repeatable": false,
+          "required": false,
+          "type": "string"
+        },
+        "tcp_check_url": {
+          "default": "http://cp.cloudflare.com,1.1.1.1,2606:4700:4700::1111",
+          "repeatable": false,
+          "required": false,
+          "type": "[]string"
+        },
+        "tls_fragment": {
+          "default": "false",
+          "repeatable": false,
+          "required": false,
+          "type": "bool"
+        },
+        "tls_fragment_interval": {
+          "default": "10-20",
+          "repeatable": false,
+          "required": false,
+          "type": "string"
+        },
+        "tls_fragment_length": {
+          "default": "50-100",
+          "repeatable": false,
+          "required": false,
+          "type": "string"
+        },
+        "tls_implementation": {
+          "default": "tls",
+          "repeatable": false,
+          "required": false,
+          "type": "string"
+        },
+        "tproxy_port": {
+          "default": "12345",
+          "repeatable": false,
+          "required": false,
+          "type": "uint16"
+        },
+        "tproxy_port_protect": {
+          "default": "true",
+          "repeatable": false,
+          "required": false,
+          "type": "bool"
+        },
+        "udp_check_dns": {
+          "default": "dns.google:53,8.8.8.8,2001:4860:4860::8888",
+          "repeatable": false,
+          "required": false,
+          "type": "[]string"
+        },
+        "udphop_interval": {
+          "default": "30s",
+          "repeatable": false,
+          "required": false,
+          "type": "time.Duration"
+        },
+        "utls_imitate": {
+          "default": "chrome_auto",
+          "repeatable": false,
+          "required": false,
+          "type": "string"
+        },
+        "wan_interface": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "[]string"
+        }
+      },
+      "Group": {
+        "check_interval": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "time.Duration"
+        },
+        "check_tolerance": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "time.Duration"
+        },
+        "filter": {
+          "default": null,
+          "repeatable": true,
+          "required": false,
+          "type": "[][]*config_parser.Function"
+        },
+        "policy": {
+          "default": null,
+          "repeatable": false,
+          "required": true,
+          "type": "FunctionListOrString"
+        },
+        "tcp_check_http_method": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "string"
+        },
+        "tcp_check_url": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "[]string"
+        },
+        "udp_check_dns": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "[]string"
+        }
+      },
+      "Routing": {
+        "fallback": {
+          "default": "direct",
+          "repeatable": false,
+          "required": false,
+          "type": "FunctionOrString"
+        }
+      },
+      "Utls": {
+        "imitate": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "string"
+        }
+      }
+    }
+  },
+  "target": {
+    "commit": "dbae2e82d3ed5324e1648548720f8bbc8cde3882",
+    "configSha256": "07ec201560cb37556e7789eb3de4e282c88d3fd92b863d1f41fc361d0f7f1a67",
+    "dae": "v2.1.1",
+    "models": {
+      "Config": {
+        "dns": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "Dns"
+        },
+        "global": {
+          "default": null,
+          "repeatable": false,
+          "required": true,
+          "type": "Global"
+        },
+        "group": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "[]Group"
+        },
+        "node": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "[]KeyableString"
+        },
+        "routing": {
+          "default": null,
+          "repeatable": false,
+          "required": true,
+          "type": "Routing"
+        },
+        "subscription": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "[]KeyableString"
+        }
+      },
+      "Dns": {
+        "bind": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "string"
+        },
+        "fixed_domain_ttl": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "[]KeyableString"
+        },
+        "ipversion_prefer": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "int"
+        },
+        "max_cache_size": {
+          "default": "65536",
+          "repeatable": false,
+          "required": false,
+          "type": "int"
+        },
+        "optimistic_cache": {
+          "default": "true",
+          "repeatable": false,
+          "required": false,
+          "type": "bool"
+        },
+        "optimistic_cache_ttl": {
+          "default": "60",
+          "repeatable": false,
+          "required": false,
+          "type": "int"
+        },
+        "optimistic_stale_reply_ttl": {
+          "default": "30",
+          "repeatable": false,
+          "required": false,
+          "type": "int"
+        },
+        "routing": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "DnsRouting"
+        },
+        "upstream": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "[]KeyableString"
+        }
+      },
+      "DnsRequestRouting": {
+        "fallback": {
+          "default": null,
+          "repeatable": false,
+          "required": true,
+          "type": "FunctionOrString"
+        }
+      },
+      "DnsResponseRouting": {
+        "fallback": {
+          "default": null,
+          "repeatable": false,
+          "required": true,
+          "type": "FunctionOrString"
+        }
+      },
+      "DnsRouting": {
+        "request": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "DnsRequestRouting"
+        },
+        "response": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "DnsResponseRouting"
+        }
+      },
+      "Global": {
+        "allow_insecure": {
+          "default": "false",
+          "repeatable": false,
+          "required": false,
+          "type": "bool"
+        },
+        "auto_config_firewall_rule": {
+          "default": "false",
+          "repeatable": false,
+          "required": false,
+          "type": "bool"
+        },
+        "auto_config_kernel_parameter": {
+          "default": "false",
+          "repeatable": false,
+          "required": false,
+          "type": "bool"
+        },
+        "auto_sniff_punt": {
+          "default": "true",
+          "repeatable": false,
+          "required": false,
+          "type": "bool"
+        },
+        "bandwidth_max_rx": {
+          "default": "0",
+          "repeatable": false,
+          "required": false,
+          "type": "string"
+        },
+        "bandwidth_max_tx": {
+          "default": "0",
+          "repeatable": false,
+          "required": false,
+          "type": "string"
+        },
+        "bootstrap_resolver": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "string"
+        },
+        "bpf_conn_state_map_size": {
+          "default": "262144",
+          "repeatable": false,
+          "required": false,
+          "type": "uint32"
+        },
+        "check_interval": {
+          "default": "30s",
+          "repeatable": false,
+          "required": false,
+          "type": "time.Duration"
+        },
+        "check_tolerance": {
+          "default": "0",
+          "repeatable": false,
+          "required": false,
+          "type": "time.Duration"
+        },
+        "dial_mode": {
+          "default": "domain",
+          "repeatable": false,
+          "required": false,
+          "type": "string"
+        },
+        "disable_thp": {
+          "default": "false",
+          "repeatable": false,
+          "required": false,
+          "type": "bool"
+        },
+        "disable_waiting_network": {
+          "default": "false",
+          "repeatable": false,
+          "required": false,
+          "type": "bool"
+        },
+        "enable_local_tcp_fast_redirect": {
+          "default": "false",
+          "repeatable": false,
+          "required": false,
+          "type": "bool"
+        },
+        "fallback_resolver": {
+          "default": "8.8.8.8:53",
+          "repeatable": false,
+          "required": false,
+          "type": "string"
+        },
+        "lan_interface": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "[]string"
+        },
+        "log_level": {
+          "default": "info",
+          "repeatable": false,
+          "required": false,
+          "type": "string"
+        },
+        "mptcp": {
+          "default": "false",
+          "repeatable": false,
+          "required": false,
+          "type": "bool"
+        },
+        "pprof_port": {
+          "default": "0",
+          "repeatable": false,
+          "required": false,
+          "type": "uint16"
+        },
+        "sniffing_timeout": {
+          "default": "30ms",
+          "repeatable": false,
+          "required": false,
+          "type": "time.Duration"
+        },
+        "so_mark_from_dae": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "uint32"
+        },
+        "so_mark_from_dae_set": {
+          "configurationKeyAccepted": false,
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "role": "internal-presence-metadata-for-so_mark_from_dae",
+          "type": "bool"
+        },
+        "tcp_check_http_method": {
+          "default": "HEAD",
+          "repeatable": false,
+          "required": false,
+          "type": "string"
+        },
+        "tcp_check_url": {
+          "default": "http://cp.cloudflare.com,1.1.1.1,2606:4700:4700::1111",
+          "repeatable": false,
+          "required": false,
+          "type": "[]string"
+        },
+        "tls_fragment": {
+          "default": "false",
+          "repeatable": false,
+          "required": false,
+          "type": "bool"
+        },
+        "tls_fragment_interval": {
+          "default": "10-20",
+          "repeatable": false,
+          "required": false,
+          "type": "string"
+        },
+        "tls_fragment_length": {
+          "default": "50-100",
+          "repeatable": false,
+          "required": false,
+          "type": "string"
+        },
+        "tls_implementation": {
+          "default": "tls",
+          "repeatable": false,
+          "required": false,
+          "type": "string"
+        },
+        "tproxy_port": {
+          "default": "12345",
+          "repeatable": false,
+          "required": false,
+          "type": "uint16"
+        },
+        "tproxy_port_protect": {
+          "default": "true",
+          "repeatable": false,
+          "required": false,
+          "type": "bool"
+        },
+        "udp_check_dns": {
+          "default": "dns.google:53,8.8.8.8,2001:4860:4860::8888",
+          "repeatable": false,
+          "required": false,
+          "type": "[]string"
+        },
+        "udphop_interval": {
+          "default": "30s",
+          "repeatable": false,
+          "required": false,
+          "type": "time.Duration"
+        },
+        "utls_imitate": {
+          "default": "chrome_auto",
+          "repeatable": false,
+          "required": false,
+          "type": "string"
+        },
+        "wan_interface": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "[]string"
+        }
+      },
+      "Group": {
+        "check_interval": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "time.Duration"
+        },
+        "check_tolerance": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "time.Duration"
+        },
+        "filter": {
+          "default": null,
+          "repeatable": true,
+          "required": false,
+          "type": "[][]*config_parser.Function"
+        },
+        "policy": {
+          "default": null,
+          "repeatable": false,
+          "required": true,
+          "type": "FunctionListOrString"
+        },
+        "tcp_check_http_method": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "string"
+        },
+        "tcp_check_url": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "[]string"
+        },
+        "udp_check_dns": {
+          "default": null,
+          "repeatable": false,
+          "required": false,
+          "type": "[]string"
+        }
+      },
+      "Routing": {
+        "fallback": {
+          "default": "direct",
+          "repeatable": false,
+          "required": false,
+          "type": "FunctionOrString"
+        }
+      }
+    }
+  }
+}

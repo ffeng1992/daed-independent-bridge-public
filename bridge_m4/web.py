@@ -95,6 +95,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.server.sessions.logout(sid)
                 self.reply(200,{'loggedOut':True},cookie=self.cookie(COOKIE,'',0));return
             elif path=='/api/preview' and not value:value=self.server.runtime.preview(token)
+            elif path=='/api/bind-extensions' and not value:value=self.server.runtime.bind_extensions(token)
             elif path=='/api/extensions':value=self.server.runtime.edit(value)
             elif path in {'/api/validate','/api/apply'} and set(value)=={'previewId'}:
                 value=self.server.runtime.validate(value['previewId']) if path.endswith('validate') else self.server.runtime.apply(token,value['previewId'])
@@ -120,7 +121,9 @@ class Handler(BaseHTTPRequestHandler):
                 return
             # Domain codes contain no source values; upstream messages never reach clients.
             allowed={'SOURCE_CHANGED','EXTENSION_CHANGED','PREVIEW_CONFLICT','EXTENSION_CAS_CONFLICT','VALIDATION_REQUIRED','VALIDATE_FAILED','OLD_SOURCE','SOURCE_EXPIRED','STATUS_REJECTED','UNMANAGED_SERVICE_ACTIVE','MANUAL_INTERVENTION_REQUIRED','UNIT_IDENTITY_MISMATCH'}
-            code=str(exc) if isinstance(exc,Denied) and str(exc) in allowed else 'REQUEST_FAILED'
+            from .extensions import CompatibilityError
+            code=(exc.code if isinstance(exc,CompatibilityError) and exc.code=='EXTENSION_CAS_CONFLICT'
+                  else str(exc) if isinstance(exc,Denied) and str(exc) in allowed else 'REQUEST_FAILED')
             self.reply(409,{'error':code})
     def do_GET(self):self.run_request(False)
     def do_POST(self):self.run_request(True)

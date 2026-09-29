@@ -13,14 +13,14 @@ from .collect import collect
 from .runtime import EXTENSIONS,ENDPOINT,PUBLIC
 from .runtime_bundle import receipt,fingerprints
 from .authority import policy,manifest,controller
+from .upstream_contracts import official_member_sha
 
 def identity():
     result=subprocess.run(['/usr/bin/systemctl','show','daed-api.service','--property=MainPID,InvocationID,ActiveState'],env=ENV,capture_output=True,check=True,timeout=5)
     raw=dict(line.split('=',1) for line in result.stdout.decode().splitlines() if '=' in line)
     check(raw['ActiveState']=='active' and int(raw['MainPID'])>0,'DAED_IDENTITY')
     pid=raw['MainPID'];binary=digest(Path(f'/proc/{pid}/exe').read_bytes())
-    lock=load_json(Path('/opt/bridge/upstream.lock.json').read_bytes())
-    expected=next(x['sha256'] for x in lock['components']['daed']['archive_members'] if x['path'].endswith('/daed-linux-x86_64'))
+    expected=official_member_sha('daed','daed-linux-x86_64/daed-linux-x86_64')
     argv=Path(f'/proc/{pid}/cmdline').read_bytes().split(b'\0')[:-1]
     check(binary==expected and argv==[b'/opt/bridge-official/daed',b'run',b'--api-only',b'--config',b'/var/lib/bridge-daed',b'--listen',b'127.0.0.1:2024'],'DAED_IDENTITY')
     inodes={line.split()[9] for line in Path('/proc/net/tcp').read_text().splitlines()[1:] if line.split()[1]=='0100007F:07E8' and line.split()[3]=='0A'}

@@ -9,8 +9,9 @@ from .artifacts import artifacts as preview
 from .convert import VERSION
 from .extensions import validate_record
 from .runtime_models import model
+from .upstream_contracts import DAED_VERSION, DAE_TARGET
 
-TARGET = 'dae-v2.1.1-linux-x86_64'
+TARGET = DAE_TARGET
 
 def fingerprints(source, extensions):
     check(type(extensions) is dict,'EXTENSION_SCHEMA')
@@ -19,7 +20,7 @@ def fingerprints(source, extensions):
     keys={'schemaVersion','classification','daedVersion','sourceSha256','databaseSha256','records'}
     if version==2:keys.add('sourceRuntimeModel')
     check(set(extensions)==keys,'EXTENSION_SCHEMA')
-    check(extensions['daedVersion']=='v2.1.1','EXTENSION_VERSION')
+    check(extensions['daedVersion']==DAED_VERSION,'EXTENSION_VERSION')
     model(extensions)
     check(extensions['classification']=='REGENERATED_INDEPENDENT_BRIDGE_INPUT', 'EXTENSION_SCHEMA')
     for key in ('sourceSha256','databaseSha256'):

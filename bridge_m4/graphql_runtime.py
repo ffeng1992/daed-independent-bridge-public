@@ -173,8 +173,8 @@ class Controls:
                 raise GraphQLError('RUNTIME_IDENTITY_UNAVAILABLE')
             return True
         if field == 'version':
-            pin = json.loads(Path('/opt/bridge/upstream.lock.json').read_text())['components']['dae']
-            expected = next(x['sha256'] for x in pin['archive_members'] if x['path'] == 'dae-linux-x86_64')
+            from .upstream_contracts import DAE_VERSION, official_member_sha
+            expected = official_member_sha('dae', 'dae-linux-x86_64')
             if s.get('state') == 'stopped' and s.get('MainPID') == 0:
                 # Stopped has no /proc/PID/exe; verify the fixed official install.
                 from .authority import manifest
@@ -185,7 +185,7 @@ class Controls:
                 actual = s.get('executableSha256')
             if actual != expected:
                 raise GraphQLError('RUNTIME_IDENTITY_UNAVAILABLE')
-            return pin['version']
+            return DAE_VERSION
         if field == 'modified':
             from .runtime_bundle import fingerprints
             source, _, ext, _ = self.runtime.snapshot(token)

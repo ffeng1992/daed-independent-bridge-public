@@ -124,13 +124,13 @@ class ControlsTests(unittest.TestCase):
         r=Mock();r.snapshot.return_value=({},None,{},None)
         with self.assertRaises(GraphQLError):Controls(r).dae('modified',{'activeBundle':'b'},'synthetic')
     def test_stopped_version_uses_verified_official_install(self):
-        lock={'components':{'dae':{'version':'v2.1.1','archive_members':[{'path':'dae-linux-x86_64','sha256':'pin'}]}}}
-        with patch('bridge_m4.graphql_runtime.Path.read_text',return_value=json.dumps(lock)), \
+        with patch('bridge_m4.upstream_contracts.official_member_sha',return_value='pin') as pinned, \
              patch('bridge_m4.graphql_runtime.Path.read_bytes',return_value=b'synthetic'), \
              patch('bridge_m4.authority.manifest') as verified, \
              patch('bridge_m1.common.digest',return_value='pin'):
             self.assertEqual(Controls(Mock()).dae('version',{'state':'stopped','MainPID':0},''),'v2.1.1')
             verified.assert_called_once()
+            pinned.assert_called_once_with('dae','dae-linux-x86_64')
     def test_unknown_identity_not_running_false(self):
         with self.assertRaises(GraphQLError):Controls(Mock()).dae('running',{'state':'running','identityVerified':False},'synthetic')
 

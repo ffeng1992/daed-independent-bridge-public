@@ -6,6 +6,7 @@ import unittest
 from unittest.mock import patch
 from bridge_m4.runtime import Runtime
 from bridge_m4.store import ExtensionStore
+from bridge_m4.extensions import CompatibilityError
 from bridge_m2.security import Denied
 from tests.m4.test_runtime_bundle import fixture
 
@@ -55,6 +56,80 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(ExtensionStore(self.root/'extensions').load()[1]['extensions'],original)
         self.assertEqual(effective['records']['global']['1'],original['records']['global']['1'])
         self.assertEqual(self.calls,[])
+
+    def test_new_profiles_explicitly_bind_edit_and_survive_restart(self):
+        import copy
+        from bridge_m4.convert import cursor
+        from bridge_m1.common import canonical,digest,load_json
+        for kind in ('configs','dnss','groups'):
+            item=copy.deepcopy(self.source['metadata'][kind][0])
+            item['id']=cursor('99')
+            if kind in ('configs','dnss'):
+                self.source['metadata'][kind][0]['selected']=False
+                item['selected']=True
+            else:item['name']='new_group'
+            self.source['metadata'][kind].append(item)
+        sha=digest(canonical(self.source));self.proof.update(beforeSha256=sha,afterSha256=sha)
+        before=self.runtime.preview('synthetic')
+        self.assertNotIn('99',self.runtime.extensions()['records']['global'])
+        bound=self.runtime.bind_extensions('synthetic')
+        self.assertTrue(bound['changed'])
+        visible=self.runtime.extensions()['records']
+        for section in ('global','dns','group'):self.assertIn('99',visible[section])
+        self.assertEqual(visible['global']['99']['disable_thp'],{'present':False})
+        self.assertEqual(self.runtime.bind_extensions('synthetic'),{'generation':bound['generation'],'changed':False})
+        with self.assertRaisesRegex(Denied,'PREVIEW_CONFLICT'):self.runtime.require_preview(before['previewId'])
+        for section,field,value in (('global','disable_thp',False),('dns','optimistic_stale_reply_ttl',0),('group','check_interval','45s')):
+            generation=self.runtime.extensions()['generation']
+            self.runtime.edit({'expected':generation,'section':section,'profile':'99','field':field,'state':{'present':True,'value':value}})
+        restarted=Runtime(self.root,submitter=self.submit,collector=lambda t:(self.source,self.proof))
+        records=restarted.extensions()['records']
+        self.assertEqual(records['global']['99']['disable_thp'],{'present':True,'value':False})
+        self.assertEqual(records['dns']['99']['optimistic_stale_reply_ttl'],{'present':True,'value':0})
+        self.assertEqual(records['group']['99']['check_interval'],{'present':True,'value':'45s'})
+        self.assertEqual(records['global']['1'],self.ext['records']['global']['1']['fields'])
+        preview=restarted.preview('synthetic')
+        candidate=(self.root/'previews'/preview['previewId']/'candidate.dae').read_text()
+        self.assertIn('disable_thp: false',candidate)
+        self.assertIn('optimistic_stale_reply_ttl: 0',candidate)
+        self.assertEqual(self.calls,[])
+
+    def test_bind_rejects_stale_generation_and_unverified_id(self):
+        import copy
+        from bridge_m4.convert import cursor
+        from bridge_m1.common import canonical,digest
+        item=copy.deepcopy(self.source['metadata']['configs'][0]);item['id']=cursor('99')
+        self.source['metadata']['configs'].append(item)
+        sha=digest(canonical(self.source));self.proof.update(beforeSha256=sha,afterSha256=sha)
+        stale=self.runtime.extensions()['generation']
+        first=self.runtime.bind_extensions('synthetic')
+        with self.assertRaisesRegex(CompatibilityError,'EXTENSION_CAS_CONFLICT'):
+            self.runtime.store.bind_profiles(self.source,stale)
+        with self.assertRaisesRegex(CompatibilityError,'UNKNOWN_PROFILE'):
+            self.runtime.edit({'expected':first['generation'],'section':'global','profile':'100','field':'disable_thp','state':{'present':True,'value':True}})
+        with self.assertRaisesRegex(CompatibilityError,'EXTENSION_CAS_CONFLICT'):
+            self.runtime.edit({'expected':stale,'section':'global','profile':'99','field':'disable_thp','state':{'present':True,'value':True}})
+        bad=copy.deepcopy(self.source)
+        bad['metadata']['configs'][-1]['id']=cursor('invalid')
+        with self.assertRaisesRegex(CompatibilityError,'INVALID_PROFILE_ID'):
+            self.runtime.store.bind_profiles(bad,first['generation'])
+
+    def test_independent_store_writers_cannot_replace_saved_extension(self):
+        from concurrent.futures import ThreadPoolExecutor
+        generation=self.runtime.extensions()['generation']
+        def writer(value):
+            store=ExtensionStore(self.root/'extensions')
+            try:
+                store.commit(expected=generation,section='global',profile='1',field='disable_thp',
+                             state={'present':True,'value':value})
+                return 'saved'
+            except CompatibilityError as exc:return str(exc)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results=list(pool.map(writer,(True,False)))
+        self.assertEqual(results.count('saved'),1)
+        self.assertTrue(any('EXTENSION_CAS_CONFLICT' in result for result in results))
+        saved=self.runtime.extensions()['records']['global']['1']['disable_thp']
+        self.assertIn(saved['value'],(True,False))
 
     def test_no_apply_before_validate(self):
         p=self.runtime.preview('synthetic')

@@ -6,7 +6,7 @@ an untrusted database name. Raw field absence remains in each lossless record.
 """
 from .extensions import need
 
-OFFICIAL = 'official-daed-v2.1.1'
+OFFICIAL = 'official-daed-v2.1.1'  # sealed v1 extension record semantics
 FUSION = 'fusion-7ed6de2eac8cff8b0c8468e9445db1db58ef3190'
 DEFAULTS = {
     OFFICIAL: {'global.auto_sniff_punt':False, 'dns.max_cache_size':0, 'dns.optimistic_stale_reply_ttl':0},

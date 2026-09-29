@@ -1,6 +1,6 @@
 """AST-routed management proxy. Upstream account/configuration CRUD stays upstream.
 
-No DAE telemetry equivalence is claimed where v2.1.1 exposes no external API.
+Traffic Overview is forwarded unchanged; it is not standalone DAE telemetry.
 """
 import json
 import threading
@@ -69,7 +69,7 @@ def touches_runtime(document, operation, schema):
         for node in selection.selections:
             if isinstance(node, FieldNode):
                 name = node.name.value
-                if (kind == 'Mutation' and name == 'run') or (kind == 'General' and name in {'dae', 'runtimeOverview'}):
+                if (kind == 'Mutation' and name == 'run') or (kind == 'General' and name == 'dae'):
                     return True
                 from graphql import get_named_type
                 typ = schema.get_type(kind)
@@ -132,12 +132,6 @@ class Adapter:
                 if context['status'] is None:
                     context['status'] = self.runtime.status()
                 return self.runtime.dae(field, context['status'], authorization.removeprefix('Bearer '))
-            if kind == 'General' and field == 'runtimeOverview':
-                raise GraphQLError('STANDALONE_DAE_TELEMETRY_UNAVAILABLE', extensions={
-                    'code': 'UNSUPPORTED_EQUIVALENT_METRICS',
-                    'metrics': ['uploadRate','downloadRate','uploadTotal','downloadTotal','activeConnections','udpSessions'],
-                    'reason': 'v2.1.1 has in-process counters but no external runtime metrics API',
-                    'observations': self.runtime.observations()})
             if kind in {'Query', 'Mutation'} or (kind == 'General' and source.get('_runtime_general')):
                 query = subtree(info)
                 # General subtrees need their original parent restored.
@@ -171,23 +165,6 @@ class Controls:
         if s.get('error') or s.get('state') == 'rollback-needed':
             raise GraphQLError('RUNTIME_IDENTITY_UNAVAILABLE')
         return s
-    def observations(self):
-        import os
-        import time
-        from bridge_m2.security import directory, read_at
-        from .runtime import PUBLIC
-        try:
-            state=self.status()
-            fd=directory(PUBLIC,0,os.getegid(),0o750)
-            try: value=json.loads(read_at(fd,'kernel-observations.json',0,os.getegid(),0o640))
-            finally: os.close(fd)
-            if (not state.get('identityVerified') or value['MainPID']!=state['MainPID'] or
-                    value['InvocationID']!=state['InvocationID'] or
-                    not 0<=time.time()-value['observedAt']<=30):
-                raise ValueError('STALE_OBSERVATION')
-            return value
-        except Exception:
-            return {'available':False,'reason':'FRESH_PID_OBSERVATION_UNAVAILABLE'}
     def dae(self, field, s, token):
         if field == 'running':
             if s['state'] == 'stopped' and s['MainPID'] == 0:

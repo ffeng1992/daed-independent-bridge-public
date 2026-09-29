@@ -15,11 +15,13 @@ class AdapterTests(unittest.TestCase):
     def setUp(self):
         self.calls=[];self.control=Mock();self.control.status.return_value={'state':'running'}
         self.control.dae.side_effect=lambda field,*_: {'running':True,'modified':False,'version':'v2.1.1'}[field]
-        self.control.run.return_value=1;self.control.observations.return_value={'available':False}
+        self.control.run.return_value=1
         def forward(raw,auth):
             self.calls.append((raw,auth));q=json.loads(raw)['query']
             if q=='{user{username}}':return b'{"data":{"user":{"username":"synthetic"}}}'
             if 'interfaces' in q:return b'{"data":{"general":{"interfaces":["synthetic0"]}}}'
+            if 'runtimeOverview' in q:
+                return b'{"data":{"general":{"runtimeOverview":{"uploadRate":0,"udpSessions":0}}}}'
             return b'{"data":{"numberUsers":1}}'
         self.forward=Mock(side_effect=forward)
         self.adapter=Adapter(build_schema(SCHEMA),self.control,self.forward)
@@ -49,9 +51,17 @@ class AdapterTests(unittest.TestCase):
         r=self.runq('mutation{run(dry:"true")}');self.assertIn('errors',r);self.control.run.assert_not_called()
     def test_missing_operation_no_side_effect(self):
         self.runq('query A{numberUsers} mutation B{run(dry:true)}');self.control.run.assert_not_called()
-    def test_telemetry_unavailable_not_zero(self):
-        r=self.runq('{general{runtimeOverview(windowSec:60,maxPoints:60){uploadRate udpSessions}}}')
-        self.assertEqual(r['errors'][0]['extensions']['code'],'UNSUPPORTED_EQUIVALENT_METRICS');self.assertIsNone(r['data'])
+    def test_telemetry_forwarded_without_adapter_error(self):
+        raw=b'{"query":"{general{runtimeOverview(windowSec:60,maxPoints:60){uploadRate udpSessions}}}"}'
+        self.assertEqual(self.adapter.handle(raw,'Bearer synthetic'),
+                         b'{"data":{"general":{"runtimeOverview":{"uploadRate":0,"udpSessions":0}}}}')
+        self.assertEqual(self.calls,[(raw,'Bearer synthetic')])
+        self.control.status.assert_not_called()
+    def test_mixed_runtime_dae_and_overview(self):
+        r=self.runq('{general{dae{running} runtimeOverview(windowSec:60,maxPoints:60){uploadRate udpSessions}}}')
+        self.assertEqual(r['data']['general'],{'dae':{'running':True},
+                                                'runtimeOverview':{'uploadRate':0,'udpSessions':0}})
+        self.assertNotIn('errors',r)
     def test_mixed_general_preserves_interfaces(self):
         r=self.runq('query X($up:Boolean){general{interfaces(up:$up) dae{running}}}',{'up':True})
         self.assertEqual(r['data']['general'],{'interfaces':['synthetic0'],'dae':{'running':True}})
@@ -113,10 +123,6 @@ class ControlsTests(unittest.TestCase):
     def test_missing_active_fingerprint_fails_closed(self):
         r=Mock();r.snapshot.return_value=({},None,{},None)
         with self.assertRaises(GraphQLError):Controls(r).dae('modified',{'activeBundle':'b'},'synthetic')
-    def test_unavailable_observations_not_zero(self):
-        r=Mock();r.status.side_effect=RuntimeError('unavailable')
-        value=Controls(r).observations()
-        self.assertFalse(value['available']);self.assertNotIn('uploadRate',value)
     def test_stopped_version_uses_verified_official_install(self):
         lock={'components':{'dae':{'version':'v2.1.1','archive_members':[{'path':'dae-linux-x86_64','sha256':'pin'}]}}}
         with patch('bridge_m4.graphql_runtime.Path.read_text',return_value=json.dumps(lock)), \

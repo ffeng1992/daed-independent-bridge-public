@@ -170,8 +170,7 @@ bridge/Web使用非root专用用户，helper只管理固定dae.service。
 贡献应回到维护源，不单独维护两套实现。导出规则与复现命令见
 [PUBLIC_EXPORT.md](PUBLIC_EXPORT.md)。公开仓不需要访问维护源即可安装、测试或构建。
 
-当前版本为 0.3.0 发布候选，本次不创建 tag 或发布 Release。
-后续维护者显式发布时，两仓使用相同 `VERSION` 和 tag（例如 `v0.3.0`）。
+当前版本为 0.3.1。两仓使用相同 `VERSION` 和 tag；既有 v0.3.0 tag 保持不变。
 `release-build.yml` 仅构建并验证 tar.gz/SHA256SUMS，不自动创建 Release。
 
 安装一条命令为 `sudo sh install.sh`，首次交互提供自己的网络设置。
@@ -192,6 +191,13 @@ In standalone official DAE mode, official DAE v2.1.1 does not expose
 an external equivalent runtime metrics API. The original Daed Web
 Traffic Overview therefore shows zero values. These values must not
 be interpreted as real traffic statistics.
+
+**Official node latency upstream limitation:** A single-node
+`testNodeLatencies` request timed out when sent directly to the official
+daed API-only backend during production verification. The bridge forwards
+this operation unchanged and does not synthesize latency results. A shorter
+timeout through the Web proxy can surface as a bridge request error; the
+official backend must return before latency can be displayed.
 
 This limitation alone is not a release blocker. The completed
 [official Web field matrix](docs/WEB-FIELD-MATRIX.md) retains 18 upstream failures;

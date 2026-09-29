@@ -33,18 +33,17 @@ multiplexing and sockets disappearing between samples prevent that equivalence.
 It adds no BPF programs and reads no process memory. Interface-wide byte counters
 would include unrelated traffic and are not substituted.
 
-Until an equivalent source is available, `runtimeOverview` returns the explicit
-GraphQL error `UNSUPPORTED_EQUIVALENT_METRICS`, with safe PID-owned observations,
-not the API-only core's zero values. uploadRate, downloadRate, uploadTotal,
+`runtimeOverview` is forwarded unchanged to official daed. Its API-only core may
+return default zero values; uploadRate, downloadRate, uploadTotal,
 downloadTotal, activeConnections, udpSessions and 1m/10m/30m/1h histories are **not
-supported as equivalent official metrics**. No fake samples are generated.
+supported as equivalent standalone DAE metrics**. No fake samples are generated.
 This is the accepted `KNOWN_LIMITATION_TRAFFIC_OVERVIEW`. It does not waive
 acceptance of other configuration and control functions. Official binaries and all pinned static assets remain
 unchanged.
 
-The original dashboard may display its own default zero placeholders after this
-GraphQL error. Those placeholders are not measured telemetry and do not count as
-a passing dashboard check. The bridge does not modify upstream UI behavior.
+The original dashboard may display those upstream zero values. They are not
+measured standalone DAE telemetry and do not count as a passing dashboard check.
+The bridge does not modify upstream UI behavior.
 
 New official Config/DNS/Group profiles receive deterministic extension records from their API-effective fields. Existing sealed extension records are preserved. Preview and the independent attestor derive the same effective records; the resulting receipt and bundle cover their hashes without modifying the official database.
 

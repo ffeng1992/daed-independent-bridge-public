@@ -3,6 +3,43 @@
 from pathlib import Path
 import hashlib,subprocess,os,tempfile,json,fcntl,time,shutil,ipaddress
 from urllib.parse import urlsplit
+
+def identity_action(previous, fingerprint, bundle_id, config_sha256):
+ if previous.get('fingerprint') != fingerprint:return 'full'
+ if previous.get('activeBundle') != bundle_id or previous.get('configSha256') != config_sha256:
+  return 'refresh'
+ return 'unchanged'
+
+def refresh_identity_atomically(statefile, previous, bundle_id, config_sha256):
+ refreshed=dict(previous)
+ refreshed.update(source='INDEPENDENT_BRIDGE',activeBundle=bundle_id,
+                  configSha256=config_sha256,verified_at=time.time())
+ fd,name=tempfile.mkstemp(prefix='.independent-sync-',dir=statefile.parent)
+ try:
+  with os.fdopen(fd,'w') as stream:
+   os.fchmod(stream.fileno(),0o600)
+   json.dump(refreshed,stream,separators=(',',':'))
+   stream.flush();os.fsync(stream.fileno())
+  os.replace(name,statefile)
+  directory=os.open(statefile.parent,os.O_RDONLY)
+  try:os.fsync(directory)
+  finally:os.close(directory)
+ finally:
+  if os.path.exists(name):os.unlink(name)
+
+def reconcile_identity(previous, fingerprint, bundle_id, config_sha256, statefile, read_status):
+ action=identity_action(previous,fingerprint,bundle_id,config_sha256)
+ if action=='full':return False
+ if action=='refresh':
+  again,again_expected=read_status()
+  if (again.get('state')!='running' or again.get('identityVerified') is not True or
+      again.get('activeBundle')!=bundle_id or again.get('configSha256')!=config_sha256 or
+      again_expected!=config_sha256):
+   raise SystemExit('Independent source changed; policy retained')
+  refresh_identity_atomically(statefile,previous,bundle_id,config_sha256)
+  print('POLICY_SYNC_SOURCE=INDEPENDENT_BRIDGE IDENTITY_REFRESHED=true RELOAD=false')
+ return True
+
 ROOT=Path('/etc/dae-dns-repair');STATE=Path('/var/lib/dae-dns-repair');STATE.mkdir(exist_ok=True)
 INGRESS=Path('/var/lib/dae-ingress-sync/state.json')
 lock=open('/run/independent-policy-sync.lock','w');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
@@ -44,7 +81,7 @@ ingress_view=json.dumps({'mappings':mapping_view,'endpoints':sorted(endpoint_hos
 fingerprint=hashlib.sha256(route.encode()+geo.read_bytes()+gen.read_bytes()+ingress_view).hexdigest()
 statefile=STATE/'independent-sync.json'
 oldstate=json.loads(statefile.read_text()) if statefile.exists() else {}
-if oldstate.get('fingerprint')==fingerprint:raise SystemExit(0)
+if reconcile_identity(oldstate,fingerprint,identity,expected,statefile,read_status):raise SystemExit(0)
 stage=Path(tempfile.mkdtemp(prefix='generation-',dir=ROOT));(stage/'routing.txt').write_text(route)
 env=dict(os.environ,DNS_OUTPUT_DIR=str(stage),DNS_ROUTING_FILE=str(stage/'routing.txt'),DNS_GEOSITE_FILE=str(geo),DNS_DATA_DIR=str(stage),DNS_INGRESS_STATE_FILE=str(INGRESS))
 subprocess.run(['/usr/bin/python3',str(gen)],env=env,check=True,capture_output=True)

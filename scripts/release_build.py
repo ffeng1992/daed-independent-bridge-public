@@ -10,6 +10,7 @@ PREFIXES=('bridge_m1/','bridge_m2/','bridge_m4/','contracts/','deployment/m4/','
 EXACT={'README.md','LICENSE','VERSION','THIRD_PARTY.md','PUBLIC_EXPORT.md','.public-source.json','upstream.lock.json','install.sh','upgrade.sh','uninstall.sh','health-check.sh',
        'scripts/__init__.py','scripts/m4_install.py','scripts/m4_install_transaction.py',
        'scripts/m4_package.py','scripts/m4_assets.py','scripts/m4_production_dns.py'}
+EXACT.add('scripts/management_recovery.py')
 
 def included(name):
     return name in EXACT or (name.startswith(PREFIXES) and name not in {'deployment/m4/production/files.json','deployment/m4/production/README.md','bridge_m4/migrate.py','bridge_m4/private_inputs.py','bridge_m4/migration.py','bridge_m4/migration_journal.py'}) or (name.startswith('scripts/release_') and name.endswith('.py'))

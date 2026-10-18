@@ -115,6 +115,11 @@ purge只删除固定项目数据目录；dnsdist配置、共享policy DNS和ingr
 sudo sh health-check.sh
 ```
 
+`bridge-management-recovery.timer`每分钟检查一次五个管理组件。连续两次失败才执行有界恢复，
+同一服务15分钟内最多尝试两次；它不会控制DAE、DNS、路由、节点、分组、bundle或Apply。
+明确维护前运行`sudo /usr/local/bin/bridge-management-recovery --pause`，维护完成后运行
+`sudo /usr/local/bin/bridge-management-recovery --resume`。暂停标记存在时巡检只记录状态，不恢复服务。
+
 只读检查官方daed的api-only身份与哈希、真实bridge/DAE身份、activeBundle/config哈希、
 LAN53及DAE5353的UDP/TCP实际DNS查询、DAE=UP/DIRECT=DOWN/consistent=true、
 Bridge Web匿名拒绝，以及短期认证会话读取的身份与broker一致；

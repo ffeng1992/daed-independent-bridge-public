@@ -1,0 +1,98 @@
+import json
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import patch
+
+from scripts import management_recovery as m
+
+
+class ManagementRecoveryTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        root = Path(self.temp.name)
+        self.patches = [patch.object(m, 'STATE', root/'state.json'),
+                        patch.object(m, 'PAUSE', root/'pause')]
+        for item in self.patches: item.start()
+
+    def tearDown(self):
+        for item in reversed(self.patches): item.stop()
+        self.temp.cleanup()
+
+    def run_checks(self, health, actions, times=(100, 161)):
+        def healthy(name, kind): return (health.get(name, False), 'DOWN')
+        def show(name): return {'ActiveState':'active' if health.get(name) else 'inactive'}
+        def ctl(action, name):
+            actions.append((action, name)); health[name] = True
+        with patch.object(m, 'locks', return_value=[]), patch.object(m, 'maintenance_guard'), \
+             patch.object(m, 'healthy', side_effect=healthy), patch.object(m, 'show', side_effect=show), \
+             patch.object(m, 'systemctl', side_effect=ctl):
+            for now in times: m.check_once(now)
+
+    def test_normal_stop_requires_two_failures_then_starts_only_target(self):
+        health = {name: True for name, _ in m.SERVICES}; health['daed-web.service'] = False
+        actions=[]; self.run_checks(health, actions)
+        self.assertEqual(actions, [('start','daed-web.service')])
+
+    def test_active_http_hang_restarts_only_target(self):
+        health={name:True for name,_ in m.SERVICES}; actions=[]
+        calls={'n':0}
+        def check(name, kind):
+            if name=='bridge-graphql.service' and calls['n']<2:
+                calls['n']+=1; return False,'HTTP_STATUS'
+            return True,''
+        with patch.object(m,'locks',return_value=[]),patch.object(m,'maintenance_guard'), \
+             patch.object(m,'healthy',side_effect=check),patch.object(m,'show',return_value={'ActiveState':'active'}), \
+             patch.object(m,'systemctl',side_effect=lambda a,n:actions.append((a,n))):
+            m.check_once(100);m.check_once(161)
+        self.assertEqual(actions,[('restart','bridge-graphql.service')])
+
+    def test_api_and_dependency_cascade_restore_in_dependency_order(self):
+        health={name:False for name,_ in m.SERVICES};health['independent-bridge.service']=True
+        actions=[];self.run_checks(health,actions)
+        self.assertEqual([name for _,name in actions],
+                         ['daed-api.service','bridge-graphql.service','bridge-attestor.service','daed-web.service'])
+
+    def test_pause_skips_every_action(self):
+        m.PAUSE.write_text('paused')
+        actions=[]
+        with patch.object(m,'locks',return_value=[]),patch.object(m,'systemctl',side_effect=lambda *x:actions.append(x)):
+            m.check_once(100)
+        self.assertEqual(actions,[])
+
+    def test_install_identity_failure_skips_every_action(self):
+        actions=[]
+        with patch.object(m,'locks',return_value=[]),patch.object(m,'maintenance_guard',side_effect=RuntimeError('INSTALL_FILE_IDENTITY')), \
+             patch.object(m,'systemctl',side_effect=lambda *x:actions.append(x)):
+            m.check_once(100)
+        self.assertEqual(actions,[])
+
+    def test_rate_limit_stops_third_recovery(self):
+        state={'schemaVersion':1,'services':{'daed-web.service':{'consecutiveFailures':2,'attempts':[10,20]}}}
+        m.STATE.write_text(json.dumps(state))
+        actions=[]
+        with patch.object(m,'locks',return_value=[]),patch.object(m,'maintenance_guard'), \
+             patch.object(m,'healthy',return_value=(False,'DOWN')),patch.object(m,'show',return_value={'ActiveState':'inactive'}), \
+             patch.object(m,'systemctl',side_effect=lambda *x:actions.append(x)):
+            m.check_once(100)
+        self.assertEqual(actions,[])
+
+    def test_healthy_check_has_no_service_action(self):
+        health={name:True for name,_ in m.SERVICES};actions=[];self.run_checks(health,actions,times=(100,))
+        self.assertEqual(actions,[])
+
+    def test_capture_and_restore_only_previously_active_services(self):
+        target=Path(self.temp.name)/'capture.json';actions=[]
+        states={name:('active' if name in {'daed-api.service','daed-web.service'} else 'inactive') for name,_ in m.SERVICES}
+        with patch.object(m,'show',side_effect=lambda n:{'ActiveState':states[n]}):m.capture(target)
+        content=json.loads(target.read_text())
+        self.assertTrue(content['services']['daed-api.service']);self.assertFalse(content['services']['bridge-attestor.service'])
+        states['daed-api.service']=states['daed-web.service']='inactive'
+        def healthy(name, kind): return states[name]=='active','' if states[name]=='active' else 'DOWN'
+        def ctl(action,name): actions.append((action,name));states[name]='active'
+        with patch.object(m,'maintenance_guard'),patch.object(m,'healthy',side_effect=healthy), \
+             patch.object(m,'systemctl',side_effect=ctl):m.restore(target)
+        self.assertEqual(actions,[('start','daed-api.service'),('start','daed-web.service')])
+
+
+if __name__ == '__main__': unittest.main()

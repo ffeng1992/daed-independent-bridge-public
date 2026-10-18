@@ -19,7 +19,9 @@ CORE = ('daed-api.service', 'bridge-helper.socket', 'bridge-attestor.service',
         'independent-bridge.service', 'dae.service', 'bridge-graphql.service', 'daed-web.service')
 DNS = ('bridge-policy-dns.service', 'bridge-lan-dns.service')
 TIMERS = ('independent-dns-sync.timer', 'independent-policy-sync.timer')
-STOP = (*TIMERS, 'independent-policy-sync.service', 'independent-dns-sync.service',
+RECOVERY_TIMER = 'bridge-management-recovery.timer'
+STOP = (RECOVERY_TIMER, *TIMERS, 'bridge-management-recovery.service',
+        'independent-policy-sync.service', 'independent-dns-sync.service',
         'daed-web.service', 'bridge-graphql.service', 'dae.service', 'independent-bridge.service', 'bridge-attestor.service',
         'bridge-helper.socket', 'bridge-helper.service', 'daed-api.service', *DNS)
 DATA = (CFG, Path('/var/lib/bridge-daed'), Path('/var/lib/bridge-m4-client'),
@@ -140,6 +142,7 @@ def start_management():
     ctl('enable',*units)
     ctl('start',*units)
     wait_for_management()
+    ctl('enable', '--now', RECOVERY_TIMER)
 
 
 def connect_daed():
@@ -177,12 +180,13 @@ def start():
     wait_for_management()
     wait_for_dataplane()
     ctl('start', *TIMERS)
+    ctl('enable', '--now', RECOVERY_TIMER)
 
 
 def stop():
     # Stop trigger sources before consumers. systemd marks an interrupted
     # oneshot as failed on SIGTERM even for an explicit administrative stop.
-    ctl('stop', *TIMERS)
+    ctl('stop', RECOVERY_TIMER, *TIMERS)
     oneshots = ('independent-policy-sync.service', 'independent-dns-sync.service')
     ctl('stop', *oneshots)
     stopping=tuple(name for name in STOP if name not in TIMERS + oneshots and

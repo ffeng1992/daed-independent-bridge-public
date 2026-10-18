@@ -49,7 +49,7 @@ chmod 0755 /usr/local/bin/fake-management-endpoint
 getent group independent-bridge >/dev/null || groupadd --system independent-bridge
 getent passwd independent-bridge >/dev/null || useradd --system --gid independent-bridge --home-dir /nonexistent --shell /usr/sbin/nologin independent-bridge
 install -d -m 0755 /etc/daed-independent-bridge /var/lib/daed-independent-bridge /var/lib/bridge-m4-attestation /var/lib/primary-rollback
-install -d -o independent-bridge -g independent-bridge -m 0750 /var/lib/bridge-m4-client
+install -d -o independent-bridge -g independent-bridge -m 0700 /var/lib/bridge-m4-client
 install -d -o independent-bridge -g independent-bridge -m 0770 /var/lib/bridge-m4-client/management-recovery
 openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=127.0.0.1 -addext subjectAltName=IP:127.0.0.1 -keyout /etc/daed-independent-bridge/tls.key -out /etc/daed-independent-bridge/tls.crt >/dev/null 2>&1
 printf '{"address":"127.0.0.1","origin":"https://127.0.0.1:8443"}\n' > /etc/daed-independent-bridge/web.json

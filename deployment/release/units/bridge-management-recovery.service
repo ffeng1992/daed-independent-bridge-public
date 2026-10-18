@@ -5,6 +5,8 @@ After=network-online.target
 [Service]
 Type=oneshot
 Group=independent-bridge
+Environment=BRIDGE_MANAGEMENT_CONTROL_DIR=/run/bridge-management-recovery
+BindPaths=/var/lib/bridge-m4-client/management-recovery:/run/bridge-management-recovery
 ExecStart=/usr/bin/python3 -I /usr/local/bin/bridge-management-recovery
 NoNewPrivileges=yes
 ProtectSystem=strict
@@ -12,4 +14,4 @@ ProtectHome=yes
 PrivateTmp=yes
 RestrictAddressFamilies=AF_UNIX AF_INET
 CapabilityBoundingSet=
-ReadWritePaths=/run /var/lib/daed-independent-bridge /var/lib/bridge-m4-client/management-recovery
+ReadWritePaths=/run /var/lib/daed-independent-bridge

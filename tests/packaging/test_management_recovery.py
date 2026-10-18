@@ -160,7 +160,16 @@ class ManagementRecoveryTests(unittest.TestCase):
         unit=(Path(__file__).parents[2]/'deployment/release/units/bridge-management-recovery.service').read_text()
         self.assertIn('Group=independent-bridge\n',unit)
         self.assertIn('CapabilityBoundingSet=\n',unit)
-        self.assertIn('/var/lib/bridge-m4-client/management-recovery',unit)
+        self.assertIn('Environment=BRIDGE_MANAGEMENT_CONTROL_DIR=/run/bridge-management-recovery\n',unit)
+        self.assertIn('BindPaths=/var/lib/bridge-m4-client/management-recovery:/run/bridge-management-recovery\n',unit)
+        self.assertNotIn('CAP_DAC_OVERRIDE',unit)
+        self.assertNotIn('CAP_DAC_READ_SEARCH',unit)
+
+    def test_service_control_path_can_be_mapped_without_changing_web_path(self):
+        self.assertEqual(m.control_path({'BRIDGE_MANAGEMENT_CONTROL_DIR':'/run/test-control'}),
+                         Path('/run/test-control'))
+        self.assertEqual(m.control_path({}),
+                         Path('/var/lib/bridge-m4-client/management-recovery'))
 
     def test_capture_and_restore_only_previously_active_services(self):
         target=Path(self.temp.name)/'capture.json';actions=[]

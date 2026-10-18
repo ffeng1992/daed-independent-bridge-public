@@ -12,7 +12,15 @@ import urllib.request
 CFG = Path('/etc/daed-independent-bridge')
 STATE = Path('/var/lib/daed-independent-bridge/management-recovery.json')
 PAUSE = CFG / 'management-recovery.pause'
-WEB_CONTROL = Path('/var/lib/bridge-m4-client/management-recovery')
+
+
+def control_path(environ=None):
+    values = os.environ if environ is None else environ
+    return Path(values.get('BRIDGE_MANAGEMENT_CONTROL_DIR',
+                           '/var/lib/bridge-m4-client/management-recovery'))
+
+
+WEB_CONTROL = control_path()
 WEB_PAUSE = WEB_CONTROL / 'pause.json'
 WEB_RESUME = WEB_CONTROL / 'resume.json'
 APPLY_LOCK = Path('/var/lib/daed-independent-bridge/apply.lock')

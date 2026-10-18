@@ -111,7 +111,7 @@ def install(upgrade=False,production_dns=False,preserve_assets=False,release_pro
                 files[name]=(path.read_bytes(),0o444)
     retire_legacy_units()
     uid,gid=account('independent-bridge');daed_uid,daed_gid=account('bridge-daed')
-    for path,mode,u,g in [('/etc/daed-independent-bridge',0o755,0,0),('/opt/bridge',0o755,0,0),('/opt/bridge-official',0o755,0,0),('/opt/bridge-service',0o755,0,0),(str(BASE),0o711,0,0),(str(BASE/'versions'),0o700,0,0),(str(BASE/'inbox'),0o700,uid,gid),('/var/lib/bridge-m4-client',0o750,uid,gid),('/var/lib/bridge-m4-client/extensions',0o700,uid,gid),('/var/lib/bridge-m4-client/management-recovery',0o770,uid,gid),('/var/lib/bridge-m4-attestation',0o750,0,gid),('/var/lib/bridge-daed',0o700,daed_uid,daed_gid)]:folder(path,mode,u,g)
+    for path,mode,u,g in [('/etc/daed-independent-bridge',0o755,0,0),('/opt/bridge',0o755,0,0),('/opt/bridge-official',0o755,0,0),('/opt/bridge-service',0o755,0,0),(str(BASE),0o711,0,0),(str(BASE/'versions'),0o700,0,0),(str(BASE/'inbox'),0o700,uid,gid),('/var/lib/bridge-m4-client',0o700,uid,gid),('/var/lib/bridge-m4-client/extensions',0o700,uid,gid),('/var/lib/bridge-m4-client/management-recovery',0o770,uid,gid),('/var/lib/bridge-m4-attestation',0o750,0,gid),('/var/lib/bridge-daed',0o700,daed_uid,daed_gid)]:folder(path,mode,u,g)
     # No overwrite of an unmanaged unit/binary on a first install.
     for name in files:
         check(not Path(name).exists() or (old is not None and name in old['files']) or (preserve_assets and name.startswith('/opt/bridge-official/assets/')),'UNMANAGED_INSTALL_FILE')

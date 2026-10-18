@@ -6,8 +6,14 @@ from unittest.mock import patch
 
 from scripts import management_recovery as m
 
+ROOT=Path(__file__).resolve().parents[2]
 
 class ManagementRecoveryTests(unittest.TestCase):
+    def test_client_parent_keeps_original_private_authority(self):
+        source=(ROOT/'scripts/m4_install.py').read_text()
+        self.assertIn("('/var/lib/bridge-m4-client',0o700,uid,gid)",source)
+        self.assertIn("('/var/lib/bridge-m4-client/management-recovery',0o770,uid,gid)",source)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         root = Path(self.temp.name)

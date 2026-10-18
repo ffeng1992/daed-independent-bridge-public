@@ -79,3 +79,11 @@ class OnboardingTests(unittest.TestCase):
     def test_management_readiness_failure_is_not_success(self):
         with patch.object(lifecycle,'ctl'),patch.object(lifecycle,'wait_for_management',side_effect=RuntimeError('SETUP_TIMEOUT')):
             with self.assertRaisesRegex(RuntimeError,'SETUP_TIMEOUT'):lifecycle.start_management()
+
+    def test_bridge_client_reports_only_bounded_sanitized_exception_line(self):
+        result=SimpleNamespace(returncode=1,stdout=b'',stderr=(
+            b'Authorization: Bearer synthetic-secret\nRuntimeError: REQUEST_FAILED'))
+        with patch.object(setup.subprocess,'run',return_value=result):
+            with self.assertRaisesRegex(RuntimeError,
+                    r'^BRIDGE_CLIENT_SETUP_FAILED:RuntimeError: REQUEST_FAILED$'):
+                setup.client('raise RuntimeError()',{})

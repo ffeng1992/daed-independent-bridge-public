@@ -73,7 +73,14 @@ def client(code,value):
     prefix='import sys;sys.path[:0]=["/opt/bridge","/opt/bridge/vendor"];'
     p=subprocess.run(['/usr/sbin/runuser','-u','independent-bridge','--','/usr/bin/python3','-I','-c',prefix+code],
                      input=json.dumps(value).encode(),capture_output=True,timeout=150)
-    need(p.returncode==0,'BRIDGE_CLIENT_SETUP_FAILED')
+    if p.returncode:
+        # Preserve one bounded, sanitized exception line so disposable release
+        # acceptance identifies the failed bridge operation without publishing
+        # credentials or full command output.
+        from scripts.redact import redact
+        lines=redact(p.stderr.decode(errors='replace')).splitlines()
+        detail=(lines[-1] if lines else 'NO_ERROR_DETAIL')[-500:]
+        raise RuntimeError('BRIDGE_CLIENT_SETUP_FAILED:'+detail)
     return json.loads(p.stdout) if p.stdout else None
 
 

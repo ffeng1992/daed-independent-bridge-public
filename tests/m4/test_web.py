@@ -42,8 +42,17 @@ class WebTests(unittest.TestCase):
         status,raw,_=self.req('/api/challenge');self.assertEqual(status,200);self.csrf=json.loads(raw)['csrf']
         status,raw,headers=self.req('/api/login',{'token':'synthetic-token'});self.assertEqual(status,200);self.csrf=json.loads(raw)['csrf'];return headers
     def test_unauthenticated_information_is_blocked(self):
-        for route in ('status','extensions','session'):
+        for route in ('status','extensions','editor-metadata','session'):
             status,raw,_=self.req('/api/'+route);self.assertEqual(status,401);self.assertEqual(json.loads(raw),{'error':'UNAUTHORIZED'})
+        self.assertEqual(self.backend.calls,[])
+    def test_editor_metadata_is_authenticated_read_only(self):
+        from unittest.mock import patch
+        self.login()
+        with patch('bridge_m4.ui_metadata.metadata', return_value={'schemaVersion':1}) as projection:
+            status, raw, _ = self.req('/api/editor-metadata')
+            self.assertEqual(status,200)
+            self.assertEqual(json.loads(raw)['data'],{'schemaVersion':1})
+            self.assertIs(projection.call_args.args[0],self.backend)
         self.assertEqual(self.backend.calls,[])
     def test_cookie_and_security_headers(self):
         h=self.login()
@@ -77,7 +86,7 @@ class WebTests(unittest.TestCase):
         self.assertEqual(self.req('/api/bind-extensions',{})[0],401)
         status,body,_=self.req('/app.js')
         self.assertEqual(status,200)
-        self.assertIn(b"api('bind-extensions',{})",body)
+        self.assertIn(b"api('bind-extensions', {})",body)
     def test_replay_only_executes_once(self):
         self.login();status,_,_=self.req('/api/preview',{});self.assertEqual(status,200)
         status,raw,_=self.req('/api/preview',{});self.assertEqual(status,401);self.assertEqual(json.loads(raw)['error'],'CSRF_REJECTED');self.assertEqual(self.backend.calls,[('preview',)])
@@ -91,7 +100,7 @@ class WebTests(unittest.TestCase):
     def test_unknown_route_has_no_paths_or_internals(self):
         status,raw,_=self.req('/api/../../etc/passwd');self.assertEqual(status,401);self.assertNotIn(b'/etc',raw)
     def test_static_page_explains_split(self):
-        status,body,_=self.req('/');self.assertEqual(status,200);self.assertIn('daed 原生 Run 不是独立 DAE 控制入口'.encode(),body)
+        status,body,_=self.req('/');self.assertEqual(status,200);self.assertIn('官方 daed 负责配置，独立 DAE 负责转发。'.encode(),body);self.assertIn('daed 中的保存不会自动应用到独立 DAE。'.encode(),body)
 
     def test_referenced_empty_group_returns_authenticated_diagnostic(self):
         from bridge_m4.extensions import CompatibilityError

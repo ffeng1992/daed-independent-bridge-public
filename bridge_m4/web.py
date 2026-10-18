@@ -86,6 +86,9 @@ class Handler(BaseHTTPRequestHandler):
         if not mutating:
             if path=='/api/session':value={}
             elif path=='/api/status':value=self.server.runtime.action('status')
+            elif path=='/api/editor-metadata':
+                from .ui_metadata import metadata
+                value=metadata(self.server.runtime,token)
             elif path=='/api/management-health':
                 check(self.server.management is not None,'MANAGEMENT_HEALTH_UNAVAILABLE')
                 value=self.server.management.status()

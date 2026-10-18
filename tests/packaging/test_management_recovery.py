@@ -84,6 +84,32 @@ class ManagementRecoveryTests(unittest.TestCase):
         health={name:True for name,_ in m.SERVICES};actions=[];self.run_checks(health,actions,times=(100,))
         self.assertEqual(actions,[])
 
+    def test_read_only_probes_do_not_hold_apply_lock(self):
+        order=[]
+        def health(name, kind):
+            self.assertEqual(order[-1], 'locks-closed')
+            return True, ''
+        with patch.object(m, 'locks', side_effect=lambda: order.append('locks-open') or [123]), \
+             patch.object(m, 'close_locks', side_effect=lambda _: order.append('locks-closed')), \
+             patch.object(m, 'maintenance_guard'), patch.object(m, 'healthy', side_effect=health), \
+             patch.object(m, 'show', return_value={'ActiveState':'active','MainPID':'123'}):
+            m.check_once(100)
+        self.assertEqual(order, ['locks-open', 'locks-closed'])
+
+    def test_apply_lock_busy_skips_recovery_without_service_action(self):
+        state={'schemaVersion':1,'services':{'daed-web.service':{'consecutiveFailures':1}}}
+        m.STATE.write_text(json.dumps(state)); actions=[]; calls={'locks':0}
+        def lock_probe():
+            calls['locks'] += 1
+            if calls['locks'] > 1: raise BlockingIOError('apply-active')
+            return []
+        with patch.object(m, 'locks', side_effect=lock_probe), patch.object(m, 'maintenance_guard'), \
+             patch.object(m, 'healthy', return_value=(False,'DOWN')), \
+             patch.object(m, 'show', return_value={'ActiveState':'inactive','MainPID':'0'}), \
+             patch.object(m, 'systemctl', side_effect=lambda *x: actions.append(x)):
+            m.check_once(100)
+        self.assertEqual(actions, [])
+
     def test_state_contains_bounded_structured_history_and_live_component_status(self):
         health={name:True for name,_ in m.SERVICES};health['daed-web.service']=False;actions=[]
         self.run_checks(health,actions)

@@ -185,6 +185,16 @@ def close_locks(handles):
         os.close(fd)
 
 
+def guarded(*, allow_web_paused=False):
+    """Probe the shared maintenance gates without delaying an Apply operation."""
+    handles = locks()
+    try:
+        maintenance_guard(allow_web_paused=allow_web_paused)
+    finally:
+        if handles:
+            close_locks(handles)
+
+
 def log(message, **fields):
     print(json.dumps({'message': message, **fields}, ensure_ascii=False,
                      sort_keys=True), flush=True)
@@ -233,6 +243,9 @@ def check_once(now=None):
         log('管理层处于维护或身份异常状态，自动恢复未执行。',
             error=type(exc).__name__ + ':' + str(exc))
         close_locks(handles); return 0
+    # The checker must never hold the Apply lock while probing HTTP endpoints.
+    # A recovery action re-probes the same gates immediately before it runs.
+    close_locks(handles); handles = []
     state = load_state()
     try:
         state['lastCheckStartedAt'] = now
@@ -262,6 +275,14 @@ def check_once(now=None):
                 append_history(state, 'SERVICE_HEALTH_FAILED', now,
                                service=name, impact=kind, error=error,
                                needsAttention=False)
+            if failures >= 2:
+                try:
+                    guarded()
+                except (BlockingIOError, RuntimeError, OSError, ValueError,
+                        json.JSONDecodeError) as exc:
+                    log('管理层进入维护状态，本轮恢复已跳过。', service=name,
+                        error=type(exc).__name__ + ':' + str(exc))
+                    continue
             if failures >= 2 and recover(name, kind, record, state, now):
                 record['consecutiveFailures'] = 0
                 record['healthy'] = True
@@ -277,7 +298,8 @@ def check_once(now=None):
             else 'DEGRADED')
         save_state(state)
     finally:
-        close_locks(handles)
+        if handles:
+            close_locks(handles)
     return 0
 
 

@@ -12,7 +12,10 @@ class ManagementRecoveryTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         root = Path(self.temp.name)
         self.patches = [patch.object(m, 'STATE', root/'state.json'),
-                        patch.object(m, 'PAUSE', root/'pause')]
+                        patch.object(m, 'PAUSE', root/'pause'),
+                        patch.object(m, 'WEB_CONTROL', root/'web-control'),
+                        patch.object(m, 'WEB_PAUSE', root/'web-control'/'pause.json'),
+                        patch.object(m, 'WEB_RESUME', root/'web-control'/'resume.json')]
         for item in self.patches: item.start()
 
     def tearDown(self):
@@ -80,6 +83,52 @@ class ManagementRecoveryTests(unittest.TestCase):
     def test_healthy_check_has_no_service_action(self):
         health={name:True for name,_ in m.SERVICES};actions=[];self.run_checks(health,actions,times=(100,))
         self.assertEqual(actions,[])
+
+    def test_state_contains_bounded_structured_history_and_live_component_status(self):
+        health={name:True for name,_ in m.SERVICES};health['daed-web.service']=False;actions=[]
+        self.run_checks(health,actions)
+        state=json.loads(m.STATE.read_text())
+        self.assertEqual(state['lastCheckResult'],'HEALTHY')
+        self.assertTrue(state['services']['daed-web.service']['healthy'])
+        self.assertEqual(state['services']['daed-web.service']['mainPid'],0)
+        self.assertEqual([x['event'] for x in state['history']],
+                         ['SERVICE_HEALTH_FAILED','RECOVERY_SUCCEEDED'])
+        for n in range(m.HISTORY_LIMIT+5):m.append_history(state,'TEST',n)
+        self.assertEqual(len(state['history']),m.HISTORY_LIMIT)
+
+    def test_web_pause_marker_uses_same_fail_closed_guard(self):
+        m.WEB_PAUSE.parent.mkdir()
+        m.WEB_PAUSE.write_text('paused')
+        actions=[]
+        with patch.object(m,'locks',return_value=[]),patch.object(m,'systemctl',side_effect=lambda *x:actions.append(x)):
+            m.check_once(100)
+        self.assertEqual(actions,[])
+
+    def test_web_resume_is_authorized_by_privileged_guard_then_checks(self):
+        m.WEB_PAUSE.parent.mkdir();m.WEB_PAUSE.write_text('{}');m.WEB_RESUME.write_text('{}')
+        health={name:True for name,_ in m.SERVICES};actions=[]
+        with patch.object(m,'locks',return_value=[]), \
+             patch.object(m,'maintenance_guard') as guard, \
+             patch.object(m,'healthy',side_effect=lambda n,k:(health[n],'')), \
+             patch.object(m,'show',return_value={'ActiveState':'active','MainPID':'123'}), \
+             patch.object(m,'systemctl',side_effect=lambda *x:actions.append(x)):
+            m.check_once(100)
+        guard.assert_any_call(allow_web_paused=True)
+        self.assertFalse(m.WEB_PAUSE.exists());self.assertFalse(m.WEB_RESUME.exists())
+        self.assertEqual(actions,[])
+
+    def test_web_resume_guard_failure_keeps_pause_and_request(self):
+        m.WEB_PAUSE.parent.mkdir();m.WEB_PAUSE.write_text('{}');m.WEB_RESUME.write_text('{}')
+        with patch.object(m,'locks',return_value=[]), \
+             patch.object(m,'maintenance_guard',side_effect=RuntimeError('ROLLBACK_REQUIRED')):
+            self.assertEqual(m.check_once(100),0)
+        self.assertTrue(m.WEB_PAUSE.exists());self.assertTrue(m.WEB_RESUME.exists())
+
+    def test_service_uses_bridge_group_without_extra_capability(self):
+        unit=(Path(__file__).parents[2]/'deployment/release/units/bridge-management-recovery.service').read_text()
+        self.assertIn('Group=independent-bridge\n',unit)
+        self.assertIn('CapabilityBoundingSet=\n',unit)
+        self.assertIn('/var/lib/bridge-m4-client/management-recovery',unit)
 
     def test_capture_and_restore_only_previously_active_services(self):
         target=Path(self.temp.name)/'capture.json';actions=[]

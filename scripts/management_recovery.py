@@ -12,10 +12,14 @@ import urllib.request
 CFG = Path('/etc/daed-independent-bridge')
 STATE = Path('/var/lib/daed-independent-bridge/management-recovery.json')
 PAUSE = CFG / 'management-recovery.pause'
+WEB_CONTROL = Path('/var/lib/bridge-m4-client/management-recovery')
+WEB_PAUSE = WEB_CONTROL / 'pause.json'
+WEB_RESUME = WEB_CONTROL / 'resume.json'
 APPLY_LOCK = Path('/var/lib/daed-independent-bridge/apply.lock')
 RELEASE_LOCK = Path('/run/bridge-release.lock')
 WINDOW = 15 * 60
 MAX_ATTEMPTS = 2
+HISTORY_LIMIT = 100
 SERVICES = (('daed-api.service', 'api'), ('bridge-graphql.service', 'adapter'),
             ('bridge-attestor.service', 'attestor'), ('daed-web.service', 'web'),
             ('independent-bridge.service', 'bridge'))
@@ -97,11 +101,13 @@ def wait_healthy(name, kind, timeout=20):
 def load_state():
     try:
         value = json.loads(STATE.read_text())
-        need(value.get('schemaVersion') == 1 and type(value.get('services')) is dict,
+        need(value.get('schemaVersion') == 1 and type(value.get('services')) is dict
+             and type(value.get('history', [])) is list,
              'RECOVERY_STATE')
+        value.setdefault('history', [])
         return value
     except FileNotFoundError:
-        return {'schemaVersion': 1, 'services': {}}
+        return {'schemaVersion': 1, 'services': {}, 'history': []}
 
 
 def save_state(value):
@@ -111,11 +117,24 @@ def save_state(value):
     with os.fdopen(fd, 'w') as stream:
         json.dump(value, stream, sort_keys=True, separators=(',', ':'))
         stream.write('\n'); stream.flush(); os.fsync(stream.fileno())
+        os.fchmod(stream.fileno(), 0o640)
     os.replace(temp, STATE)
+    directory = os.open(STATE.parent, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(directory)
+    finally:
+        os.close(directory)
 
 
-def maintenance_guard():
+def append_history(state, event, now, **fields):
+    history = state.setdefault('history', [])
+    history.append({'at': now, 'event': event, **fields})
+    del history[:-HISTORY_LIMIT]
+
+
+def maintenance_guard(*, allow_web_paused=False):
     need(not PAUSE.exists(), 'MAINTENANCE_PAUSED')
+    need(allow_web_paused or not WEB_PAUSE.exists(), 'MAINTENANCE_PAUSED')
     for marker in ('rollback-required.json', 'checkpoint.json', 'phase1-armed.json',
                    'phase2-armed.json'):
         need(not Path('/var/lib/primary-rollback', marker).exists(), 'ROLLBACK_REQUIRED')
@@ -127,6 +146,23 @@ def maintenance_guard():
         need(not value.get('rollbackNeeded'), 'ROLLBACK_REQUIRED')
     from bridge_m4.authority import manifest
     manifest()
+
+
+def process_resume_request(now):
+    if not WEB_RESUME.exists():
+        return False
+    need(WEB_RESUME.is_file() and not WEB_RESUME.is_symlink(), 'RESUME_REQUEST_IDENTITY')
+    need(WEB_PAUSE.is_file() and not WEB_PAUSE.is_symlink(), 'PAUSE_MARKER_IDENTITY')
+    maintenance_guard(allow_web_paused=True)
+    WEB_RESUME.unlink()
+    WEB_PAUSE.unlink()
+    directory = os.open(WEB_CONTROL, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(directory)
+    finally:
+        os.close(directory)
+    log('管理员的自动恢复请求已通过维护锁与事务门禁。', resumed=True, at=now)
+    return True
 
 
 def locks():
@@ -154,12 +190,16 @@ def log(message, **fields):
                      sort_keys=True), flush=True)
 
 
-def recover(name, kind, record, now):
+def recover(name, kind, record, state, now):
     attempts = [x for x in record.get('attempts', []) if now - x < WINDOW]
     if len(attempts) >= MAX_ATTEMPTS:
         log('管理服务连续恢复失败，已停止重复尝试，需要检查。', service=name,
             impact=kind, rateLimited=True)
         record['attempts'] = attempts
+        if now - int(record.get('lastRateLimitedAt', -WINDOW)) >= WINDOW:
+            record['lastRateLimitedAt'] = now
+            append_history(state, 'RECOVERY_RATE_LIMITED', now, service=name,
+                           impact=kind, needsAttention=True)
         return False
     began = time.monotonic()
     action = 'restart' if show(name).get('ActiveState') == 'active' else 'start'
@@ -170,9 +210,14 @@ def recover(name, kind, record, now):
     except Exception as exc:
         ok, error = False, type(exc).__name__ + ':' + str(exc)
     record['lastRecoveryAt'] = now; record['lastRecoverySucceeded'] = ok
+    record['lastRecoveryElapsedMs'] = int((time.monotonic() - began) * 1000)
+    append_history(state, 'RECOVERY_SUCCEEDED' if ok else 'RECOVERY_FAILED', now,
+                   service=name, impact=kind, action=action, recovered=ok,
+                   elapsedMs=record['lastRecoveryElapsedMs'], error=error,
+                   needsAttention=not ok)
     log('管理服务已自动恢复。' if ok else '管理服务恢复失败，需要检查。',
         service=name, impact=kind, action=action, recovered=ok,
-        elapsedMs=int((time.monotonic() - began) * 1000), error=error)
+        elapsedMs=record['lastRecoveryElapsedMs'], error=error)
     return ok
 
 
@@ -180,26 +225,56 @@ def check_once(now=None):
     now = int(time.time()) if now is None else now
     handles = []
     try:
-        handles = locks(); maintenance_guard()
+        handles = locks()
+        if WEB_PAUSE.exists():
+            process_resume_request(now)
+        maintenance_guard()
     except (BlockingIOError, RuntimeError, OSError, ValueError, json.JSONDecodeError) as exc:
         log('管理层处于维护或身份异常状态，自动恢复未执行。',
             error=type(exc).__name__ + ':' + str(exc))
         close_locks(handles); return 0
     state = load_state()
     try:
+        state['lastCheckStartedAt'] = now
         for name, kind in SERVICES:
             record = state['services'].setdefault(name, {})
             ok, error = healthy(name, kind)
+            try: unit = show(name)
+            except Exception: unit = {}
+            record.update({'checkedAt': now, 'healthy': ok,
+                           'activeState': unit.get('ActiveState', 'unknown'),
+                           'subState': unit.get('SubState', 'unknown'),
+                           'mainPid': int(unit.get('MainPID', '0') or 0)})
             if ok:
+                if int(record.get('consecutiveFailures', 0)):
+                    append_history(state, 'SERVICE_HEALTH_RESTORED', now,
+                                   service=name, impact=kind, recovered=True,
+                                   needsAttention=False)
                 record['consecutiveFailures'] = 0; record['lastHealthyAt'] = now
+                record['lastError'] = ''
                 continue
             failures = int(record.get('consecutiveFailures', 0)) + 1
             record['consecutiveFailures'] = failures
             record['lastFailureAt'] = now; record['lastError'] = error
             log('管理服务健康检查失败。', service=name, impact=kind,
                 consecutiveFailures=failures, error=error)
-            if failures >= 2 and recover(name, kind, record, now):
+            if failures == 1:
+                append_history(state, 'SERVICE_HEALTH_FAILED', now,
+                               service=name, impact=kind, error=error,
+                               needsAttention=False)
+            if failures >= 2 and recover(name, kind, record, state, now):
                 record['consecutiveFailures'] = 0
+                record['healthy'] = True
+                record['lastError'] = ''
+                try: unit = show(name)
+                except Exception: unit = {}
+                record.update({'activeState': unit.get('ActiveState', 'unknown'),
+                               'subState': unit.get('SubState', 'unknown'),
+                               'mainPid': int(unit.get('MainPID', '0') or 0)})
+        state['lastCheckCompletedAt'] = int(time.time()) if now is None else now
+        state['lastCheckResult'] = ('HEALTHY' if all(
+            value.get('healthy') is True for value in state['services'].values())
+            else 'DEGRADED')
         save_state(state)
     finally:
         close_locks(handles)

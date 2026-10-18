@@ -118,7 +118,12 @@ sudo sh health-check.sh
 `bridge-management-recovery.timer`每分钟检查一次五个管理组件。连续两次失败才执行有界恢复，
 同一服务15分钟内最多尝试两次；它不会控制DAE、DNS、路由、节点、分组、bundle或Apply。
 明确维护前运行`sudo /usr/local/bin/bridge-management-recovery --pause`，维护完成后运行
-`sudo /usr/local/bin/bridge-management-recovery --resume`。暂停标记存在时巡检只记录状态，不恢复服务。
+`sudo /usr/local/bin/bridge-management-recovery --resume`。也可登录 Bridge Web，在“管理系统健康与自动恢复”
+提交暂停或恢复请求；Web 恢复请求由下一轮底层巡检取得原有维护锁，并核对事务、回滚标记和安装身份后生效。
+中查看各组件、最近巡检、恢复结果和故障历史，或暂停/恢复自动恢复。页面操作沿用 Bridge 登录、CSRF、
+防重放、配置互斥及维护状态检查；命令行入口继续作为页面不可用时的应急手段。暂停标记存在时巡检不恢复服务。
+巡检仍由独立 systemd timer 执行，因此 Bridge 页面或主进程停止时，故障发现与有界恢复不会随之消失。
+当前没有经过验证的主动推送渠道；状态和中文告警仅显示在 Bridge 页面及 systemd journal，不会虚报已通知。
 
 只读检查官方daed的api-only身份与哈希、真实bridge/DAE身份、activeBundle/config哈希、
 LAN53及DAE5353的UDP/TCP实际DNS查询、DAE=UP/DIRECT=DOWN/consistent=true、
@@ -153,6 +158,8 @@ DNS提供者配置：`/etc/daed-independent-bridge/release.json`的`providers`�
 
 核心units：`daed-api.service`、`independent-bridge.service`、`daed-web.service`、`bridge-attestor.service`、
 `bridge-helper.socket/service`、`dae.service`。
+管理层自动恢复由`bridge-management-recovery.service/timer`执行，并随 Bridge 安装、升级、停止和卸载；
+卸载后不会留下仍在运行的无主定时器。
 DNS集成：`bridge-lan-dns.service`、`bridge-policy-dns.service`、`independent-dns-sync.service/timer`、`independent-policy-sync.service/timer`。
 DAE使用`Restart=on-failure`和`RestartSec=2s`。
 bridge/Web使用非root专用用户，helper只管理固定dae.service。

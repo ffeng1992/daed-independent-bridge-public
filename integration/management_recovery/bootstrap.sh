@@ -1,5 +1,6 @@
 #!/bin/sh
 set -eu
+trap 'systemctl poweroff' EXIT
 
 ROOT=/opt/bridge
 RESULT=/evidence/management-recovery-result.json
@@ -45,7 +46,11 @@ signal.signal(signal.SIGUSR1,hang);s.serve_forever()
 PY
 chmod 0755 /usr/local/bin/fake-management-endpoint
 
+getent group independent-bridge >/dev/null || groupadd --system independent-bridge
+getent passwd independent-bridge >/dev/null || useradd --system --gid independent-bridge --home-dir /nonexistent --shell /usr/sbin/nologin independent-bridge
 install -d -m 0755 /etc/daed-independent-bridge /var/lib/daed-independent-bridge /var/lib/bridge-m4-attestation /var/lib/primary-rollback
+install -d -o independent-bridge -g independent-bridge -m 0750 /var/lib/bridge-m4-client
+install -d -o independent-bridge -g independent-bridge -m 0770 /var/lib/bridge-m4-client/management-recovery
 openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=127.0.0.1 -addext subjectAltName=IP:127.0.0.1 -keyout /etc/daed-independent-bridge/tls.key -out /etc/daed-independent-bridge/tls.crt >/dev/null 2>&1
 printf '{"address":"127.0.0.1","origin":"https://127.0.0.1:8443"}\n' > /etc/daed-independent-bridge/web.json
 printf '{"schemaVersion":1,"sourceSha256":"synthetic","expiresAt":"2000-01-01T00:00:00Z"}\n' > /var/lib/bridge-m4-attestation/receipt.json
@@ -95,6 +100,8 @@ def invoke(n=2):
 def reset():
  Path('/var/lib/daed-independent-bridge/management-recovery.json').unlink(missing_ok=True)
  Path('/etc/daed-independent-bridge/management-recovery.pause').unlink(missing_ok=True)
+ control=Path('/var/lib/bridge-m4-client/management-recovery')
+ (control/'pause.json').unlink(missing_ok=True);(control/'resume.json').unlink(missing_ok=True)
  Path('/var/lib/primary-rollback/rollback-required.json').unlink(missing_ok=True)
  Path('/run/identity-ok').touch()
  sh('systemctl','reset-failed',*S,ok=False)
@@ -103,18 +110,25 @@ def record(name,value):
  out[name]=bool(value)
  if not value:raise RuntimeError(name)
 reset();before={n:sh('systemctl','show',n,'-p','InvocationID','--value').stdout.strip() for n in S};invoke(1);record('healthy_no_restart',before=={n:sh('systemctl','show',n,'-p','InvocationID','--value').stdout.strip() for n in S})
+state=json.loads(Path('/var/lib/daed-independent-bridge/management-recovery.json').read_text());record('structured_state',state['lastCheckResult']=='HEALTHY' and len(state['services'])==5 and type(state['history']) is list)
 reset();sh('systemctl','stop','daed-web');invoke();record('normal_stop',active('daed-web.service'))
 reset();sh('systemctl','kill','--signal=KILL','bridge-graphql');time.sleep(.5);invoke();record('process_crash',active('bridge-graphql.service'))
 reset();pid=int(sh('systemctl','show','independent-bridge','-p','MainPID','--value').stdout);sh('kill','-USR1',str(pid));time.sleep(.5);invoke();record('http_hang',active('independent-bridge.service'))
 reset();sh('systemctl','stop','daed-api');record('api_cascade',not active('bridge-graphql.service') and not active('bridge-attestor.service') and not active('daed-web.service'));invoke();record('dependency_recovery',all(active(n) for n in S))
 reset();cap='/tmp/management-before.json';sh('/usr/bin/python3','-I','/usr/local/bin/bridge-management-recovery','--capture',cap);sh('systemctl','stop','daed-api');sh('/usr/bin/python3','-I','/usr/local/bin/bridge-management-recovery','--restore',cap);record('rollback_restore',all(active(n) for n in S))
 reset();sh('/usr/bin/python3','-I','/usr/local/bin/bridge-management-recovery','--pause');sh('systemctl','stop','daed-web');invoke(3);record('maintenance_pause',not active('daed-web.service'))
+reset();control=Path('/var/lib/bridge-m4-client/management-recovery');control.mkdir(mode=0o770,exist_ok=True);(control/'pause.json').write_text('{"schemaVersion":1}\n');sh('systemctl','stop','daed-web');invoke(3);record('bridge_web_pause',not active('daed-web.service'));(control/'resume.json').write_text('{"schemaVersion":1}\n');invoke(2);record('bridge_web_resume',active('daed-web.service') and not (control/'pause.json').exists() and not (control/'resume.json').exists())
 reset();Path('/var/lib/primary-rollback/rollback-required.json').write_text('{}');sh('systemctl','stop','daed-web');invoke(3);record('rollback_needed',not active('daed-web.service'))
 reset();Path('/run/identity-ok').unlink();sh('systemctl','stop','daed-web');invoke(3);record('identity_mismatch',not active('daed-web.service'))
 reset();original=Path('/etc/systemd/system/daed-web.service').read_text();Path('/etc/systemd/system/daed-web.service').write_text('[Service]\nExecStart=/bin/false\nRestart=no\n');sh('systemctl','daemon-reload');sh('systemctl','stop','daed-web',ok=False);invoke(5);state=json.loads(Path('/var/lib/daed-independent-bridge/management-recovery.json').read_text());record('rate_limit',len(state['services']['daed-web.service']['attempts'])==2);Path('/etc/systemd/system/daed-web.service').write_text(original);sh('systemctl','daemon-reload')
 reset();sh('systemctl','stop','independent-bridge');invoke();record('checker_independent',active('independent-bridge.service'))
-out.update(passed=all(out.values()),checks=checks,scenarios=12)
+out.update(passed=all(out.values()),checks=checks,scenarios=14)
 Path('/evidence/management-recovery-result.json').write_text(json.dumps(out,sort_keys=True,indent=2)+'\n')
 PY
-python3 /tmp/accept.py
-poweroff
+touch /evidence/bootstrap-ready
+while test ! -e /evidence/network-detached; do sleep 1; done
+if ! python3 /tmp/accept.py; then
+ systemctl status bridge-management-recovery.service --no-pager || true
+ journalctl -u bridge-management-recovery.service -n 80 --no-pager || true
+ exit 1
+fi

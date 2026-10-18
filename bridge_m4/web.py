@@ -16,8 +16,9 @@ CHALLENGE='__Host-bridge-login'
 
 class Server(ThreadingHTTPServer):
     daemon_threads=True
-    def __init__(self,address,origin,sessions,runtime):
+    def __init__(self,address,origin,sessions,runtime,management=None):
         self.origin,self.sessions,self.runtime=origin,sessions,runtime
+        self.management=management
         super().__init__(address,Handler)
 
 class Handler(BaseHTTPRequestHandler):
@@ -85,6 +86,9 @@ class Handler(BaseHTTPRequestHandler):
         if not mutating:
             if path=='/api/session':value={}
             elif path=='/api/status':value=self.server.runtime.action('status')
+            elif path=='/api/management-health':
+                check(self.server.management is not None,'MANAGEMENT_HEALTH_UNAVAILABLE')
+                value=self.server.management.status()
             elif path=='/api/extensions':
                 value=({'setupRequired':True,'generation':None,'records':{}} if not Path('/etc/daed-independent-bridge/backend.token').exists() else self.server.runtime.extensions())
             else:raise AuthError('REQUEST_REJECTED')
@@ -97,6 +101,10 @@ class Handler(BaseHTTPRequestHandler):
             elif path=='/api/preview' and not value:value=self.server.runtime.preview(token)
             elif path=='/api/bind-extensions' and not value:value=self.server.runtime.bind_extensions(token)
             elif path=='/api/extensions':value=self.server.runtime.edit(value)
+            elif path in {'/api/management-recovery/pause','/api/management-recovery/resume'} and not value:
+                check(self.server.management is not None,'MANAGEMENT_HEALTH_UNAVAILABLE')
+                with self.server.runtime.lock:
+                    value=self.server.management.set_paused(path.endswith('/pause'))
             elif path in {'/api/validate','/api/apply'} and set(value)=={'previewId'}:
                 value=self.server.runtime.validate(value['previewId']) if path.endswith('validate') else self.server.runtime.apply(token,value['previewId'])
             elif path in {'/api/start','/api/stop','/api/reload','/api/recover'} and set(value)=={'bundleId'}:
@@ -120,7 +128,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(409,diagnostic)
                 return
             # Domain codes contain no source values; upstream messages never reach clients.
-            allowed={'SOURCE_CHANGED','EXTENSION_CHANGED','PREVIEW_CONFLICT','EXTENSION_CAS_CONFLICT','VALIDATION_REQUIRED','VALIDATE_FAILED','OLD_SOURCE','SOURCE_EXPIRED','STATUS_REJECTED','UNMANAGED_SERVICE_ACTIVE','MANUAL_INTERVENTION_REQUIRED','UNIT_IDENTITY_MISMATCH'}
+            allowed={'SOURCE_CHANGED','EXTENSION_CHANGED','PREVIEW_CONFLICT','EXTENSION_CAS_CONFLICT','VALIDATION_REQUIRED','VALIDATE_FAILED','OLD_SOURCE','SOURCE_EXPIRED','STATUS_REJECTED','UNMANAGED_SERVICE_ACTIVE','MANUAL_INTERVENTION_REQUIRED','UNIT_IDENTITY_MISMATCH','MANAGEMENT_HEALTH_STATE','MANAGEMENT_RECOVERY_BLOCKED','MANAGEMENT_RECOVERY_REQUEST','MANAGEMENT_HEALTH_UNAVAILABLE'}
             from .extensions import CompatibilityError
             code=(exc.code if isinstance(exc,CompatibilityError) and exc.code=='EXTENSION_CAS_CONFLICT'
                   else str(exc) if isinstance(exc,Denied) and str(exc) in allowed else 'REQUEST_FAILED')
@@ -147,7 +155,8 @@ def main():
     from .runtime import ENDPOINT
     # Session tokens authorize this Web only. Never forward them to daed.
     runtime=Runtime(collector=lambda _session_token:collect(HTTPReader(ENDPOINT,local_token('backend.token'))))
-    server=Server((config['address'],config['port']),config['origin'],Sessions(BridgeAuthenticator()),runtime)
+    from . import management_health
+    server=Server((config['address'],config['port']),config['origin'],Sessions(BridgeAuthenticator()),runtime,management_health)
     context=ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER);context.minimum_version=ssl.TLSVersion.TLSv1_2
     context.load_cert_chain('/etc/daed-independent-bridge/tls.crt','/etc/daed-independent-bridge/tls.key')
     server.socket=context.wrap_socket(server.socket,server_side=True)

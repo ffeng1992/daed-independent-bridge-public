@@ -1,84 +1,91 @@
-<!doctype html>
+<!DOCTYPE html>
+
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="color-scheme" content="light dark">
-  <title>独立桥 · Bridge</title>
-  <link rel="stylesheet" href="/style.css">
-  <script src="/app.js" defer></script>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
+<meta content="light dark" name="color-scheme"/>
+<title>独立桥 · Bridge</title>
+<link href="/style.css" rel="stylesheet"/>
+<script defer="" src="/app.js"></script>
 </head>
 <body>
-<a href="#main" class="skip-link">跳到主要内容</a>
-<div id="demo-banner" class="demo-banner" hidden>交互演示 · 合成数据，不连接你的网络，不会修改任何服务器</div>
-<div id="boot" class="boot"><span class="brand-mark" aria-hidden="true"><span></span></span><p>正在连接独立桥…</p></div>
-<section id="login-screen" class="login-screen" hidden aria-labelledby="login-title">
-  <div class="login-brand"><span class="brand-mark" aria-hidden="true"><span></span></span><span>独立桥 <small>BRIDGE</small></span></div>
-  <div class="login-layout">
-    <div class="login-intro"><div class="eyebrow">连接管理，保持独立。</div><h1>让网络管理，<br>井然有序。</h1><p>官方 daed 负责配置，独立 DAE 负责转发。<br>在这里完成衔接、配置应用与自动恢复管理。</p><div class="login-features"><span><i class="mini-dot"></i> 原版组件</span><span><i class="mini-dot"></i> 明确的应用边界</span><span><i class="mini-dot"></i> 内置自动恢复</span></div><div class="architecture" aria-label="daed 通过独立桥连接 DAE"><div><strong>daed</strong><small>配置管理</small></div><span class="arch-link"></span><div class="arch-bridge"><span class="brand-mark small" aria-hidden="true"><span></span></span><small>独立桥</small></div><span class="arch-link"></span><div><strong>DAE</strong><small>独立转发</small></div></div></div>
-    <div class="login-card"><div class="eyebrow">你的管理空间</div><h2 id="login-title">登录独立桥</h2><p class="muted">使用此设备的 Bridge 管理密钥。</p>
-      <form id="login-form"><label for="login-token">管理密钥 <span class="muted normal">（原登录令牌）</span></label><div class="secret-wrap"><input id="login-token" name="token" type="password" autocomplete="current-password" autocapitalize="none" spellcheck="false" required aria-describedby="token-help"><button type="button" id="toggle-secret" class="icon-button" aria-label="显示管理密钥" aria-pressed="false" data-icon="eye"></button></div><p id="token-help" class="input-hint">与官方 daed 账号分开验证，不修改任何现有密码。</p><p id="login-error" class="inline-error" role="alert" hidden></p><button type="submit" class="button primary wide" id="login-submit">进入管理页面 <span aria-hidden="true">→</span></button></form>
-      <details class="login-help"><summary>首次使用，如何取得管理密钥？</summary><p>请向部署此 Bridge 的管理员获取现有密钥。已有访问权限的管理员可在服务器读取 <code>/etc/daed-independent-bridge/bridge-login.token</code>。不需要重新生成。</p><p>可交由你信任的密码管理器保存。此页面不会把密钥写入浏览器本地存储，也不会显示现有密钥。</p></details>
-      <div class="secure-note"><span data-icon="lock" aria-hidden="true"></span><span>通过现有 HTTPS 与安全会话登录</span></div>
-    </div>
-  </div>
-  <footer class="login-footer"><span>独立桥 · 管理与转发，各司其职</span><span id="login-origin"></span></footer>
-</section>
-<div id="app" class="app" hidden>
-  <aside class="sidebar">
-    <a href="#overview" class="brand" aria-label="独立桥总览"><span class="brand-mark" aria-hidden="true"><span></span></span><span>独立桥<small>BRIDGE CONSOLE</small></span></a>
-    <div class="nav-label">工作空间</div>
-    <nav id="primary-nav" aria-label="主要导航">
-      <a href="#overview" data-page="overview" aria-label="总览"><span data-icon="grid"></span><span>总览</span></a>
-      <a href="#config" data-page="config" aria-label="配置应用"><span data-icon="layers"></span><span>配置应用</span><span id="nav-pending" class="nav-dot" hidden></span></a>
-      <a href="#extensions" data-page="extensions" aria-label="DAE 扩展"><span data-icon="sliders"></span><span>DAE 扩展</span></a>
-      <a href="#health" data-page="health" aria-label="健康与恢复"><span data-icon="shield"></span><span>健康与恢复</span></a>
-      <a href="#advanced" data-page="advanced" aria-label="高级维护"><span data-icon="terminal"></span><span>高级维护</span></a>
-    </nav>
-    <div class="sidebar-bottom"><a class="official-link" id="official-link" target="_blank" rel="noopener noreferrer"><span data-icon="external"></span><span>打开官方 daed</span></a><p>节点、订阅与路由<br>仍在官方页面管理</p><div class="host-line"><span class="mini-dot neutral"></span><span id="host-label">当前设备</span></div></div>
-  </aside>
-  <div class="workspace">
-    <header class="topbar"><div class="breadcrumb">独立桥 <span>/</span> <strong id="breadcrumb">总览</strong></div><div class="top-actions"><span id="freshness" class="freshness">等待更新</span><button class="icon-button" id="refresh" aria-label="刷新当前状态" title="刷新当前状态" data-icon="refresh"></button><button class="icon-button" id="theme" aria-label="切换配色" title="配色：跟随系统" data-icon="sun"></button><button class="button subtle small-button" id="logout">退出</button></div></header>
-    <main id="main" tabindex="-1">
-      <div id="global-warning" class="notice warning" role="alert" hidden></div>
-      <section class="page" id="page-overview" aria-labelledby="overview-heading">
-        <div class="page-heading"><div><div class="eyebrow">OVERVIEW</div><h1 id="overview-heading">网络管理，一目了然。</h1><p>查看转发引擎、配置状态与管理系统的最新情况。</p></div><span class="device-pill"><span data-icon="server"></span> 本地设备</span></div>
-        <div class="hero panel"><div class="hero-copy"><span class="eyebrow">独立 DAE</span><h2 id="hero-title">正在读取运行状态</h2><p id="hero-description">页面只读取状态，不会自动应用配置。</p><div class="hero-actions"><button class="button primary" data-go="config">查看配置状态 <span aria-hidden="true">→</span></button><button class="button subtle" data-go="advanced">运行详情</button></div><span class="fine-print">进程与配置身份正常，不等于已验证所有网站连通。</span></div><div class="engine-visual" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="engine-core"><span class="brand-mark large"><span></span></span></div><span id="hero-badge" class="engine-caption">等待状态</span></div></div>
-        <div class="metrics"><article class="metric panel"><div class="metric-label"><span data-icon="shield"></span> 管理系统</div><strong id="metric-health">读取中</strong><p id="metric-health-note">五项管理组件</p></article><article class="metric panel"><div class="metric-label"><span data-icon="layers"></span> 配置状态</div><strong id="metric-config">尚未核对</strong><p id="metric-config-note">来源与运行配置独立核对</p></article><article class="metric panel"><div class="metric-label"><span data-icon="refresh"></span> 自动恢复</div><strong id="metric-recovery">读取中</strong><p id="metric-recovery-note">仅恢复受支持的管理服务</p></article></div>
-        <div class="overview-bottom"><section class="panel quick-panel"><div class="section-heading"><h2>常用操作</h2><span class="muted">按需操作，不自动应用</span></div><button class="quick-action" data-go="config"><span class="quick-icon" data-icon="layers"></span><span><strong>检查配置变更</strong><small>先预览，再校验，最后确认应用</small></span><span data-icon="arrow"></span></button><button class="quick-action" data-go="extensions"><span class="quick-icon" data-icon="sliders"></span><span><strong>编辑 DAE 扩展</strong><small>按配置、DNS 与分组管理独立能力</small></span><span data-icon="arrow"></span></button></section><section class="panel recent-panel"><div class="section-heading"><h2>最近恢复</h2><button class="text-button" data-go="health">查看记录 <span aria-hidden="true">↗</span></button></div><div id="recent-recovery" class="empty-state compact"><span data-icon="clock"></span><strong>正在读取记录</strong><p>这里显示服务器实际保留的恢复历史。</p></div></section></div>
-      </section>
-      <section class="page" id="page-config" hidden aria-labelledby="config-heading">
-        <div class="page-heading"><div><div class="eyebrow">CONFIGURATION</div><h1 id="config-heading">每次变更，都心中有数。</h1><p>daed 中的保存不会自动应用到独立 DAE。</p></div><a class="button secondary official-dynamic" target="_blank" rel="noopener noreferrer">打开官方配置 <span data-icon="external"></span></a></div>
-        <div id="config-summary" class="notice neutral">正在核对来源与运行配置…</div>
-        <div class="stepper" aria-label="配置应用步骤"><div id="step-1" class="step current"><span>1</span><div><strong>预览变更</strong><small>生成候选，查看差异</small></div></div><div id="step-2" class="step"><span>2</span><div><strong>校验配置</strong><small>由官方 DAE 执行静态校验</small></div></div><div id="step-3" class="step"><span>3</span><div><strong>确认应用</strong><small>明确确认后改变运行配置</small></div></div></div>
-        <section class="panel config-panel"><div class="section-heading"><div><h2>配置变更预览</h2><p class="muted">只展示差异摘要，不在页面回显节点密钥与完整配置。</p></div><button id="preview" class="button primary">生成预览</button></div><div id="preview-result" class="empty-state"><span data-icon="document"></span><strong>先看看，准备改变什么。</strong><p>生成预览会保存候选文件，但不会切换当前运行配置。</p></div><div class="workflow-footer"><p id="workflow-hint">请先生成预览，再进行校验。</p><div><button id="validate" class="button secondary" disabled>校验配置</button><button id="apply" class="button primary" disabled>确认并应用</button></div></div></section>
-        <div class="notice neutral"><span data-icon="info"></span><div>静态校验通过只说明配置可被解析；实际连通性仍需单独验证。应用可能切换 DAE 进程并影响现有连接。</div></div>
-      </section>
-      <section class="page" id="page-extensions" hidden aria-labelledby="extensions-heading">
-        <div class="page-heading"><div><div class="eyebrow">DAE EXTENSIONS</div><h1 id="extensions-heading">独立能力，清晰设置。</h1><p>保留官方配置，在这里补充独立 DAE 的扩展能力。</p></div><button id="bind" class="button secondary"><span data-icon="plus"></span> 同步新建配置</button></div>
-        <div id="extension-alert" class="notice neutral" hidden></div>
-        <div class="editor-toolbar"><div id="section-tabs" class="segmented" role="group" aria-label="扩展类型"><button data-section="global" aria-pressed="true">全局配置</button><button data-section="dns" aria-pressed="false">DNS</button><button data-section="group" aria-pressed="false">分组</button></div><label class="search-wrap"><span data-icon="search" aria-hidden="true"></span><input id="field-search" type="search" placeholder="搜索设置名称" aria-label="搜索设置名称"></label></div>
-        <div class="editor-grid"><aside class="panel profile-panel"><div class="section-heading"><h2>选择配置</h2><span id="profile-count" class="count-pill">0</span></div><div id="profile-list" role="group" aria-label="配置对象"></div></aside><section class="panel fields-panel"><div class="field-panel-heading"><div><div class="eyebrow" id="profile-kind">配置</div><h2 id="profile-title">正在读取</h2></div><span id="profile-status" class="badge neutral">尚未选择</span></div><p class="field-note">“未设置”会沿用兼容规则，不等于“关闭”或“0”。保存后仍需到「配置应用」完成应用。</p><div id="fields"></div><div id="editor-savebar" class="editor-savebar" hidden><div><strong id="dirty-count">0项未保存</strong><p id="save-detail">仅保存扩展，不改变当前转发。</p></div><div><button id="discard" class="button subtle">放弃修改</button><button id="save-extensions" class="button primary">保存本配置</button></div></div></section></div>
-        <p class="fine-print editor-footnote">仅处理当前合同支持的字段。新建对象需由你明确确认同步，不根据名称猜测复制来源或继承扩展值。</p>
-      </section>
-      <section class="page" id="page-health" hidden aria-labelledby="health-heading">
-        <div class="page-heading"><div><div class="eyebrow">HEALTH & RECOVERY</div><h1 id="health-heading">管理系统，自己照看。</h1><p>服务状态、自动恢复与处理记录，在同一处查看。</p></div><span id="health-overall" class="badge neutral">读取中</span></div>
-        <section class="panel recovery-panel"><div class="recovery-intro"><span class="large-icon" data-icon="shield"></span><div><h2 id="recovery-title">自动恢复</h2><p id="recovery-description">正在读取服务器状态…</p></div></div><div class="recovery-actions"><span id="check-time" class="muted">尚未取得巡检时间</span><button id="recovery-control" class="button secondary" disabled>读取中</button></div><div class="recovery-rules"><span><strong>约60秒</strong>巡检一次</span><span><strong>连续2次</strong>失败后恢复</span><span><strong>2次 / 15分钟</strong>每服务恢复上限</span><span><strong>不自动操作</strong>DAE、DNS 与 Apply</span></div></section>
-        <section class="panel component-panel"><div class="section-heading"><h2>管理组件</h2><span id="component-count" class="muted">等待检查</span></div><div id="components"></div></section>
-        <section class="panel history-panel"><div class="section-heading"><div><h2>故障与恢复记录</h2><p class="muted">服务器返回的最近记录；空记录不代表历史上从未发生故障。</p></div><select id="history-filter" aria-label="筛选故障记录"><option value="all">全部记录</option><option value="recovery">自动恢复</option><option value="attention">检查失败与限制</option></select></div><div id="recovery-history"></div></section>
-        <div id="notification-note" class="notice neutral"><span data-icon="bell"></span><div><strong>通知范围</strong><p>正在核对通知渠道…</p></div></div>
-      </section>
-      <section class="page" id="page-advanced" hidden aria-labelledby="advanced-heading">
-        <div class="page-heading"><div><div class="eyebrow">ADVANCED</div><h1 id="advanced-heading">技术细节，按需展开。</h1><p>诊断信息与高影响操作单独放置，避免日常误触。</p></div></div>
-        <section class="panel"><div class="section-heading"><h2>运行身份</h2><span id="identity-badge" class="badge neutral">待核对</span></div><dl id="identity-summary" class="key-values"></dl><details class="technical-details"><summary>查看完整标识与校验值</summary><dl id="technical-values" class="key-values technical"></dl></details></section>
-        <section class="panel limitations"><h2>能力与证据边界</h2><p>本页面显示服务及配置身份，不生成流量统计、节点延迟或网络可用率。未接入的指标保持未知，不用零值冒充结果。</p><p>来源版本与目标版本分别锁定；此处显示的是安装合同版本，不宣称未经验证的新版本兼容。</p></section>
-        <section class="panel danger-zone"><div class="section-heading"><div><div class="eyebrow">请谨慎操作</div><h2>DAE 运行控制</h2></div><span data-icon="alert"></span></div><p>下列操作可能影响代理和由 DAE 提供的 DNS。仅在了解影响后执行；不会由页面自动触发。</p><div class="danger-action"><div><strong>启动独立 DAE</strong><p>使用已有配置包启动，不自动生成新配置。</p></div><button class="button secondary" data-action="start" disabled>启动</button></div><div class="danger-action"><div><strong>停止独立 DAE</strong><p>会中断当前代理；若 DAE 提供 DNS，解析也可能中断。</p></div><button class="button danger" data-action="stop" disabled>停止 DAE</button></div><div class="danger-action"><div><strong>重载当前配置</strong><p>可能中断现有连接，请避开使用高峰。</p></div><button class="button secondary" data-action="reload" disabled>重载</button></div><div class="danger-action"><div><strong>恢复未完成事务</strong><p>不是“恢复出厂”。仅在后端提供可恢复事务时使用。</p></div><button class="button secondary" data-action="recover" disabled>恢复事务</button></div></section>
-      </section>
-      <footer class="app-footer"><span>独立桥 <span class="footer-divider">/</span> 管理与转发，各司其职</span><span>界面包 1.0.0</span></footer>
-    </main>
-  </div>
+<a class="skip-link" href="#main">跳到主要内容</a>
+<div class="demo-banner" hidden="" id="demo-banner">交互演示 · 合成数据，不连接你的网络，不会修改任何服务器</div>
+<div class="boot" id="boot"><span aria-hidden="true" class="brand-mark"><span></span></span><p>正在连接独立桥…</p></div>
+<section aria-labelledby="login-title" class="login-screen" hidden="" id="login-screen">
+<div class="login-brand"><span aria-hidden="true" class="brand-mark"><span></span></span><span>独立桥 <small>BRIDGE</small></span></div>
+<div class="login-layout">
+<div class="login-intro"><div class="eyebrow">连接管理，保持独立。</div><h1>让网络管理，<br/>井然有序。</h1><p>官方 daed 负责配置，独立 DAE 负责转发。<br/>在这里完成衔接、配置应用与自动恢复管理。</p><div class="login-features"><span><i class="mini-dot"></i> 原版组件</span><span><i class="mini-dot"></i> 明确的应用边界</span><span><i class="mini-dot"></i> 内置自动恢复</span></div><div aria-label="daed 通过独立桥连接 DAE" class="architecture"><div><strong>daed</strong><small>配置管理</small></div><span class="arch-link"></span><div class="arch-bridge"><span aria-hidden="true" class="brand-mark small"><span></span></span><small>独立桥</small></div><span class="arch-link"></span><div><strong>DAE</strong><small>独立转发</small></div></div></div>
+<div class="login-card"><div class="eyebrow">你的管理空间</div><h2 id="login-title">登录独立桥</h2><p class="muted">使用此设备的 Bridge 管理密钥。</p>
+<form id="login-form"><label for="login-token">管理密钥 <span class="muted normal">（原登录令牌）</span></label><div class="secret-wrap"><input aria-describedby="token-help" autocapitalize="none" autocomplete="current-password" id="login-token" maxlength="8192" name="token" required="" spellcheck="false" type="password"/><button aria-label="显示管理密钥" aria-pressed="false" class="icon-button" data-icon="eye" id="toggle-secret" type="button"></button></div><p class="input-hint" id="token-help">与官方 daed 账号分开验证，不修改任何现有密码。</p><p class="inline-error" hidden="" id="login-error" role="alert"></p><button class="button primary wide" id="login-submit" type="submit">进入管理页面 <span aria-hidden="true">→</span></button></form>
+<details class="login-help"><summary>首次使用，如何取得管理密钥？</summary><p>请向部署此 Bridge 的管理员获取现有密钥。已有访问权限的管理员可在服务器读取 <code>/etc/daed-independent-bridge/bridge-login.token</code>。不需要重新生成。</p><p>可交由你信任的密码管理器保存。此页面不会把密钥写入浏览器本地存储，也不会显示现有密钥。</p></details>
+<div class="secure-note"><span aria-hidden="true" data-icon="lock"></span><span>通过现有 HTTPS 与安全会话登录</span></div>
 </div>
-<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-<dialog id="confirm-dialog" aria-labelledby="dialog-title" aria-describedby="dialog-description"><form method="dialog"><div id="dialog-icon" class="dialog-icon" data-icon="alert"></div><h2 id="dialog-title">确认操作</h2><p id="dialog-description"></p><div id="dialog-extra"></div><label id="confirm-check-wrap" class="confirm-check" hidden><input id="confirm-check" type="checkbox">我已了解影响，确认执行</label><div class="dialog-actions"><button class="button secondary" value="cancel">取消</button><button id="dialog-confirm" class="button primary" value="confirm">确认</button></div></form></dialog>
+</div>
+<footer class="login-footer"><span>独立桥 · 管理与转发，各司其职</span><span id="login-origin"></span></footer>
+</section>
+<div class="app" hidden="" id="app">
+<aside class="sidebar">
+<a aria-label="独立桥总览" class="brand" href="#overview"><span aria-hidden="true" class="brand-mark"><span></span></span><span>独立桥<small>BRIDGE CONSOLE</small></span></a>
+<div class="nav-label">工作空间</div>
+<nav aria-label="主要导航" id="primary-nav">
+<a aria-label="总览" data-page="overview" href="#overview"><span data-icon="grid"></span><span>总览</span></a>
+<a aria-label="配置应用" data-page="config" href="#config"><span data-icon="layers"></span><span>配置应用</span><span class="nav-dot" hidden="" id="nav-pending"></span></a>
+<a aria-label="DAE 扩展" data-page="extensions" href="#extensions"><span data-icon="sliders"></span><span>DAE 扩展</span></a>
+<a aria-label="健康与恢复" data-page="health" href="#health"><span data-icon="shield"></span><span>健康与恢复</span></a>
+<a aria-label="高级维护" data-page="advanced" href="#advanced"><span data-icon="terminal"></span><span>高级维护</span></a>
+</nav>
+<div class="sidebar-bottom"><a class="official-link" id="official-link" rel="noopener noreferrer" target="_blank"><span data-icon="external"></span><span>打开官方 daed</span></a><p>节点、订阅与路由<br/>仍在官方页面管理</p><div class="host-line"><span class="mini-dot neutral"></span><span id="host-label">当前设备</span></div></div>
+</aside>
+<div class="workspace">
+<header class="topbar"><div class="breadcrumb">独立桥 <span>/</span> <strong id="breadcrumb">总览</strong></div><div class="top-actions"><span aria-live="polite" class="connection-state warning" id="connection-state">待连接</span><button class="text-button draft-indicator" data-go="extensions" hidden="" id="draft-indicator">扩展草稿</button><span class="freshness" id="freshness">等待更新</span><button aria-label="刷新当前状态" class="icon-button" data-icon="refresh" id="refresh" title="刷新当前状态"></button><button aria-label="切换配色" class="icon-button" data-icon="sun" id="theme" title="配色：跟随系统"></button><button class="button subtle small-button" id="logout">退出</button></div></header>
+<main id="main" tabindex="-1">
+<div class="notice warning" hidden="" id="global-warning" role="alert"></div><section aria-labelledby="uncertain-title" class="panel uncertainty-panel" hidden="" id="uncertain-panel">
+<div class="section-heading"><h2 id="uncertain-title">有一项操作需要核对</h2><span class="badge warning">写入已暂停</span></div>
+<p id="uncertain-description"></p><p class="fine-print" id="uncertain-time"></p>
+<div class="uncertain-readback" id="uncertain-readback"></div>
+<div class="uncertainty-actions"><button class="button secondary" id="review-uncertain">只读核对结果</button><button class="button subtle" disabled="" id="ack-uncertain">我已确认后台操作结束</button></div>
+</section>
+<section aria-labelledby="overview-heading" class="page" id="page-overview">
+<div class="page-heading"><div><div class="eyebrow">OVERVIEW</div><h1 id="overview-heading">网络管理，一目了然。</h1><p>查看转发引擎、配置状态与管理系统的最新情况。</p></div><span class="device-pill"><span data-icon="server"></span> 本地设备</span></div>
+<div class="hero panel"><div class="hero-copy"><span class="eyebrow">独立 DAE</span><h2 id="hero-title">正在读取运行状态</h2><p id="hero-description">页面只读取状态，不会自动应用配置。</p><div class="hero-actions"><button class="button primary" data-go="config">查看配置状态 <span aria-hidden="true">→</span></button><button class="button subtle" data-go="advanced">运行详情</button></div><span class="fine-print">进程与配置身份正常，不等于已验证所有网站连通。</span></div><div aria-hidden="true" class="engine-visual"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="engine-core"><span class="brand-mark large"><span></span></span></div><span class="engine-caption" id="hero-badge">等待状态</span></div></div>
+<div class="metrics"><article class="metric panel"><div class="metric-label"><span data-icon="shield"></span> 管理系统</div><strong id="metric-health">读取中</strong><p id="metric-health-note">五项管理组件</p></article><article class="metric panel"><div class="metric-label"><span data-icon="layers"></span> 配置状态</div><strong id="metric-config">尚未核对</strong><p id="metric-config-note">来源与运行配置独立核对</p></article><article class="metric panel"><div class="metric-label"><span data-icon="refresh"></span> 自动恢复</div><strong id="metric-recovery">读取中</strong><p id="metric-recovery-note">仅恢复受支持的管理服务</p></article></div>
+<div class="overview-bottom"><section class="panel quick-panel"><div class="section-heading"><h2>常用操作</h2><span class="muted">按需操作，不自动应用</span></div><button class="quick-action" data-go="config"><span class="quick-icon" data-icon="layers"></span><span><strong>检查配置变更</strong><small>先预览，再校验，最后确认应用</small></span><span data-icon="arrow"></span></button><button class="quick-action" data-go="extensions"><span class="quick-icon" data-icon="sliders"></span><span><strong>编辑 DAE 扩展</strong><small>按配置、DNS 与分组管理独立能力</small></span><span data-icon="arrow"></span></button></section><section class="panel recent-panel"><div class="section-heading"><h2>最近恢复</h2><button class="text-button" data-go="health">查看记录 <span aria-hidden="true">↗</span></button></div><div class="empty-state compact" id="recent-recovery"><span data-icon="clock"></span><strong>正在读取记录</strong><p>这里显示服务器实际保留的恢复历史。</p></div></section></div>
+</section>
+<section aria-labelledby="config-heading" class="page" hidden="" id="page-config">
+<div class="page-heading"><div><div class="eyebrow">CONFIGURATION</div><h1 id="config-heading">每次变更，都心中有数。</h1><p>daed 中的保存不会自动应用到独立 DAE。</p></div><a class="button secondary official-dynamic" rel="noopener noreferrer" target="_blank">打开官方配置 <span data-icon="external"></span></a></div>
+<div class="notice neutral" id="config-summary">正在核对来源与运行配置…</div>
+<div aria-label="配置应用步骤" class="stepper"><div class="step current" id="step-1"><span>1</span><div><strong>预览变更</strong><small>生成候选，查看差异</small></div></div><div class="step" id="step-2"><span>2</span><div><strong>校验配置</strong><small>由官方 DAE 执行静态校验</small></div></div><div class="step" id="step-3"><span>3</span><div><strong>确认应用</strong><small>明确确认后改变运行配置</small></div></div></div>
+<section class="panel config-panel"><div class="section-heading"><div><h2>配置变更预览</h2><p class="muted">只展示差异摘要，不在页面回显节点密钥与完整配置。</p></div><button class="button primary" id="preview">生成预览</button></div><div class="empty-state" id="preview-result"><span data-icon="document"></span><strong>先看看，准备改变什么。</strong><p>生成预览会保存候选文件，但不会切换当前运行配置。</p></div><div class="workflow-footer"><p id="workflow-hint">请先生成预览，再进行校验。</p><div><button class="button secondary" disabled="" id="validate">校验配置</button><button class="button primary" disabled="" id="apply">确认并应用</button></div></div></section>
+<div class="notice neutral"><span data-icon="info"></span><div>静态校验通过只说明配置可被解析；实际连通性仍需单独验证。应用可能切换 DAE 进程并影响现有连接。</div></div>
+</section>
+<section aria-labelledby="extensions-heading" class="page" hidden="" id="page-extensions">
+<div class="page-heading"><div><div class="eyebrow">DAE EXTENSIONS</div><h1 id="extensions-heading">独立能力，清晰设置。</h1><p>保留官方配置，在这里补充独立 DAE 的扩展能力。</p></div><button class="button secondary" id="bind"><span data-icon="plus"></span> 同步新建配置</button></div>
+<div class="notice neutral" hidden="" id="extension-alert"></div>
+<div class="editor-toolbar"><div aria-label="扩展类型" class="segmented" id="section-tabs" role="group"><button aria-pressed="true" data-section="global">全局配置</button><button aria-pressed="false" data-section="dns">DNS</button><button aria-pressed="false" data-section="group">分组</button></div><label class="search-wrap"><span aria-hidden="true" data-icon="search"></span><input aria-label="搜索设置名称" id="field-search" placeholder="搜索设置名称" type="search"/></label></div>
+<div class="editor-grid"><aside class="panel profile-panel"><div class="section-heading"><h2>选择配置</h2><span class="count-pill" id="profile-count">0</span></div><label class="profile-search"><span class="sr-only">搜索配置对象</span><input aria-label="搜索配置对象" id="profile-search" placeholder="搜索名称或编号" type="search"/></label><div aria-label="配置对象" id="profile-list" role="group"></div></aside><section class="panel fields-panel"><div class="field-panel-heading"><div><div class="eyebrow" id="profile-kind">配置</div><h2 id="profile-title">正在读取</h2></div><span class="badge neutral" id="profile-status">尚未选择</span></div><p class="field-note">“未设置”会沿用兼容规则，不等于“关闭”或“0”。保存后仍需到「配置应用」完成应用。</p><div id="fields"></div><section aria-live="polite" class="save-report" hidden="" id="save-report"></section>
+<details class="draft-review-wrap" hidden="" id="draft-review-wrap"><summary>查看草稿与服务器值</summary><p class="fine-print">只在当前页面保留草稿，不写入浏览器存储。刷新会丢失草稿；重新登录同一页面可以恢复。</p><div id="draft-review"></div></details><div class="editor-savebar" hidden="" id="editor-savebar"><div><strong id="dirty-count">0项未保存</strong><p id="save-detail">仅保存扩展，不改变当前转发。</p></div><div><button class="button subtle" id="discard">放弃修改</button><button class="button secondary" hidden="" id="resolve-conflict">核对最新值</button><button class="button primary" id="save-extensions">保存本配置</button></div></div></section></div>
+<p class="fine-print editor-footnote">仅处理当前合同支持的字段。新建对象需由你明确确认同步，不根据名称猜测复制来源或继承扩展值。</p>
+</section>
+<section aria-labelledby="health-heading" class="page" hidden="" id="page-health">
+<div class="page-heading"><div><div class="eyebrow">HEALTH &amp; RECOVERY</div><h1 id="health-heading">管理系统，自己照看。</h1><p>服务状态、自动恢复与处理记录，在同一处查看。</p></div><span class="badge neutral" id="health-overall">读取中</span></div>
+<section class="panel recovery-panel"><div class="recovery-intro"><span class="large-icon" data-icon="shield"></span><div><h2 id="recovery-title">自动恢复</h2><p id="recovery-description">正在读取服务器状态…</p></div></div><div class="recovery-actions"><span class="muted" id="check-time">尚未取得巡检时间</span><button class="button secondary" disabled="" id="recovery-control">读取中</button></div><div class="recovery-rules"><span><strong>约60秒</strong>巡检一次</span><span><strong>连续2次</strong>失败后恢复</span><span><strong>2次 / 15分钟</strong>每服务恢复上限</span><span><strong>不自动操作</strong>DAE、DNS 与 Apply</span></div></section>
+<section class="panel component-panel"><div class="section-heading"><h2>管理组件</h2><span class="muted" id="component-count">等待检查</span></div><div id="components"></div></section>
+<section class="panel history-panel"><div class="section-heading"><div><h2>故障与恢复记录</h2><p class="muted">服务器返回的最近记录；空记录不代表历史上从未发生故障。</p></div><select aria-label="筛选故障记录" id="history-filter"><option value="all">全部记录</option><option value="recovery">自动恢复</option><option value="attention">检查失败与限制</option></select></div><div class="history-tools"><label>组件 <select id="history-service"><option value="">全部组件</option><option value="independent-bridge.service">Bridge 页面</option><option value="daed-api.service">官方配置接口</option><option value="bridge-graphql.service">官方页面适配</option><option value="bridge-attestor.service">配置签发服务</option><option value="daed-web.service">官方 daed 页面</option></select></label><label>时间 <select id="history-range"><option value="0">全部保留记录</option><option value="1">最近一小时</option><option value="24">最近24小时</option><option value="168">最近七天</option></select></label></div><div id="recovery-history"></div></section>
+<div class="notice neutral" id="notification-note"><span data-icon="bell"></span><div><strong>通知范围</strong><p>正在核对通知渠道…</p></div></div>
+</section>
+<section aria-labelledby="advanced-heading" class="page" hidden="" id="page-advanced">
+<div class="page-heading"><div><div class="eyebrow">ADVANCED</div><h1 id="advanced-heading">技术细节，按需展开。</h1><p>诊断信息与高影响操作单独放置，避免日常误触。</p></div></div>
+<section class="panel"><div class="section-heading"><h2>运行身份</h2><span class="badge neutral" id="identity-badge">待核对</span></div><dl class="key-values" id="identity-summary"></dl><details class="technical-details"><summary>查看完整标识与校验值</summary><dl class="key-values technical" id="technical-values"></dl></details></section>
+<section class="panel limitations"><h2>能力与证据边界</h2><p>本页面显示服务及配置身份，不生成流量统计、节点延迟或网络可用率。未接入的指标保持未知，不用零值冒充结果。</p><p>来源版本与目标版本分别锁定；此处显示的是安装合同版本，不宣称未经验证的新版本兼容。</p><div class="diagnostic-actions"><button class="button secondary" id="download-diagnostic">下载脱敏诊断摘要</button><p class="fine-print">仅含读取状态与功能判定；不包含主机地址、密钥、配置值、节点名称、完整哈希或原始错误。</p></div></section>
+<section class="panel danger-zone"><div class="section-heading"><div><div class="eyebrow">请谨慎操作</div><h2>DAE 运行控制</h2></div><span data-icon="alert"></span></div><p>下列操作可能影响代理和由 DAE 提供的 DNS。仅在了解影响后执行；不会由页面自动触发。</p><div class="danger-action"><div><strong>启动独立 DAE</strong><p>使用已有配置包启动，不自动生成新配置。</p></div><button class="button secondary" data-action="start" disabled="">启动</button></div><div class="danger-action"><div><strong>停止独立 DAE</strong><p>会中断当前代理；若 DAE 提供 DNS，解析也可能中断。</p></div><button class="button danger" data-action="stop" disabled="">停止 DAE</button></div><div class="danger-action"><div><strong>重载当前配置</strong><p>可能中断现有连接，请避开使用高峰。</p></div><button class="button secondary" data-action="reload" disabled="">重载</button></div><div class="danger-action"><div><strong>恢复未完成事务</strong><p>不是“恢复出厂”。仅在后端提供可恢复事务时使用。</p></div><button class="button secondary" data-action="recover" disabled="">恢复事务</button></div></section>
+</section>
+<footer class="app-footer"><span>独立桥 <span class="footer-divider">/</span> 管理与转发，各司其职</span><span>界面包 2.0.0</span></footer>
+</main>
+</div>
+</div>
+<div aria-live="polite" class="toast" hidden="" id="toast" role="status"></div>
+<dialog aria-describedby="dialog-description" aria-labelledby="dialog-title" id="confirm-dialog"><form method="dialog"><div class="dialog-icon" data-icon="alert" id="dialog-icon"></div><h2 id="dialog-title">确认操作</h2><p id="dialog-description"></p><div id="dialog-extra"></div><label class="confirm-check" hidden="" id="confirm-check-wrap"><input id="confirm-check" type="checkbox"/>我已了解影响，确认执行</label><div class="dialog-actions"><button class="button secondary" value="cancel">取消</button><button class="button primary" id="dialog-confirm" value="confirm">确认</button></div></form></dialog>
 <noscript><div class="notice warning">需要启用 JavaScript 才能使用管理界面。页面不会在未确认时修改配置。</div></noscript>
 </body></html>

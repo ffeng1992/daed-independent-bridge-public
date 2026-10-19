@@ -24,7 +24,7 @@ class FakeStore:
 class FakeRuntime:
     def __init__(self):
         self.lock=threading.RLock(); self.generation='1'*64
-        self.saved={'extensions':{'records':{'global':{'1':{}},'dns':{'2':{}},'group':{}}}}
+        self.saved={'extensions':{'records':{'global':{'1':{'fields':{'test_field':{'present':True,'value':False}}}},'dns':{'2':{'fields':{'test_field':{'present':False}}}},'group':{}}}}
         enc=lambda x:base64.b64encode(('cursor'+x).encode()).decode().rstrip('=')
         self.source={'nodes':[{'link':'NEVER-DISCLOSE-THIS-SECRET'}], 'metadata':{
             'configs':[{'id':enc('1'),'name':'正式配置','selected':True}, {'id':enc('3'),'name':'新配置','selected':False}],
@@ -32,7 +32,7 @@ class FakeRuntime:
             'groups':[{'id':enc('4'),'name':'测试分组'}]}}
         self.effective={'records':{'global':{'1':{},'3':{}},'dns':{'2':{}},'group':{'4':{}}}}
         self.proof={'beforeSha256':'2'*64,'afterSha256':'2'*64}
-        self.running={'activeBundle':'3'*64,'configSha256':'4'*64,'sourceFingerprint':'a'*64,'InvocationID':'i'*32,'identityVerified':True}
+        self.running={'activeBundle':'3'*64,'configSha256':'4'*64,'sourceFingerprint':'a'*64,'InvocationID':'e'*32,'identityVerified':True,'state':'running'}
         self.second=None;self.count=0;self.store=FakeStore(self)
     def snapshot(self,token):return copy.deepcopy(self.source),copy.deepcopy(self.proof),copy.deepcopy(self.effective),self.generation
     def status(self):
@@ -105,5 +105,56 @@ class ProjectionTests(unittest.TestCase):
         self.runtime.source['metadata']['configs'][0]['name']=name
         self.assertEqual(self.run_projection()['profiles']['global'][0]['name'],name)
     def test_no_default_guess(self):self.assertNotIn('default',json.dumps(self.run_projection()['specs']))
+
+
+    def test_schema_two_and_same_generation_fields(self):
+        r=self.run_projection();self.assertEqual(r['schemaVersion'],2);self.assertEqual(r['generation'],self.runtime.generation)
+        self.assertEqual(r['records']['global']['1']['test_field'],{'present':True,'value':False})
+    def test_new_in_memory_object_has_no_persisted_fields(self):
+        self.assertNotIn('3',self.run_projection()['records']['global'])
+    def test_no_source_text_or_sealed_record_exposed(self):
+        self.runtime.saved['extensions']['records']['global']['1']['sourceText']='PRIVATE-SOURCE-TEXT'
+        self.assertNotIn('PRIVATE-SOURCE-TEXT',json.dumps(self.run_projection()))
+    def test_missing_runtime_hash_unknown(self):
+        del self.runtime.running['configSha256'];self.assertIsNone(self.run_projection()['modified'])
+    def test_null_runtime_bundle_unknown(self):
+        self.runtime.running['activeBundle']=None;self.assertFalse(self.run_projection()['comparisonVerified'])
+    def test_malformed_fingerprint_unknown(self):
+        self.runtime.running['sourceFingerprint']='yes';self.assertIsNone(self.run_projection()['modified'])
+    def test_error_with_old_true_identity_unknown(self):
+        self.runtime.running['error']='BUSY';self.assertIsNone(self.run_projection()['modified'])
+    def test_nonrunning_identity_unknown(self):
+        self.runtime.running['state']='stopped';self.assertIsNone(self.run_projection()['modified'])
+    def test_invalid_invocation_unknown(self):
+        self.runtime.running['InvocationID']='not-hex';self.assertIsNone(self.run_projection()['modified'])
+    def test_empty_proof_strings_do_not_prove_collection(self):
+        self.runtime.proof={'beforeSha256':'','afterSha256':''};self.assertFalse(self.run_projection()['collectionStable'])
+    def test_duplicate_id_rejected(self):
+        self.runtime.source['metadata']['configs'].append(copy.deepcopy(self.runtime.source['metadata']['configs'][0]))
+        with self.assertRaises(ValueError):self.run_projection()
+    def test_invalid_generation_rejected(self):
+        self.runtime.generation='bad'
+        with self.assertRaises(ValueError):self.run_projection()
+    def test_orphan_records_counted_but_not_exposed(self):
+        self.runtime.saved['extensions']['records']['global']['99']={'fields':{'test_field':{'present':True,'value':True}}}
+        r=self.run_projection();self.assertEqual(r['orphanRecordCounts']['global'],1);self.assertNotIn('99',r['records']['global'])
+    def test_absent_value_contamination_rejected(self):
+        self.runtime.saved['extensions']['records']['global']['1']['fields']['test_field']={'present':False,'value':True}
+        with self.assertRaises(ValueError):self.run_projection()
+    def test_present_null_preserved_not_coerced(self):
+        self.runtime.saved['extensions']['records']['global']['1']['fields']['test_field']={'present':True,'value':None}
+        self.assertIsNone(self.run_projection()['records']['global']['1']['test_field']['value'])
+    def test_end_of_projection_generation_race_rejected(self):
+        orig=self.runtime.store.load;n=[0]
+        def load():
+            n[0]+=1
+            if n[0]>1:self.runtime.generation='f'*64
+            return orig()
+        self.runtime.store.load=load
+        with self.assertRaises(ValueError):self.run_projection()
+    def test_validated_runtime_identity_included(self):
+        self.assertEqual(self.run_projection()['runningIdentity']['activeBundle'],'3'*64)
+    def test_unknown_running_identity_not_exposed_as_verified(self):
+        self.runtime.running['identityVerified']=False;self.assertIsNone(self.run_projection()['runningIdentity'])
 
 if __name__=='__main__':unittest.main(verbosity=2)

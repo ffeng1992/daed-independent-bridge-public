@@ -1,15 +1,23 @@
-"""Read-only, authenticated UI projection; never binds, edits or applies.
+"""Authenticated, read-only editor projection (schema 2).
 
-Use only from the existing protected Web dispatch. Object names and field
-contracts are returned, never node links, source configuration or credentials.
-The caller's existing collector uses backend.token, not the Web session secret.
+The editor's names, types, bound flags and persisted fields share one generation.
+No source configuration, node links or credentials are exposed. This module never
+binds, saves, previews or applies; existing Runtime/Store remain the only writers.
 """
 import base64
+import copy
 import re
 import time
 
 from .runtime_bundle import fingerprints
 from .upstream_contracts import DAED_VERSION, DAE_VERSION, extension_fields
+
+HASH = re.compile(r'[a-f0-9]{64}')
+KINDS = (('configs', 'global'), ('dnss', 'dns'), ('groups', 'group'))
+
+
+def _hash(value):
+    return type(value) is str and HASH.fullmatch(value) is not None
 
 
 def _profile_id(encoded):
@@ -21,60 +29,96 @@ def _profile_id(encoded):
     return decoded[6:]
 
 
-def metadata(runtime, token, *, now=None):
-    """Return a complete source projection without changing persistent state.
+def _identity(state):
+    """Only a complete, error-free running identity proves a comparison."""
+    return (type(state) is dict and not state.get('error')
+            and state.get('identityVerified') is True
+            and state.get('state') == 'running'
+            and all(_hash(state.get(k)) for k in
+                    ('activeBundle', 'configSha256', 'sourceFingerprint'))
+            and type(state.get('InvocationID')) is str
+            and re.fullmatch(r'[a-f0-9]{32}', state['InvocationID']) is not None)
 
-    snapshot() may construct missing extension records IN MEMORY. This does not
-    call ExtensionStore.bind_profiles/commit. Bound flags use the stored records.
-    Source-vs-running comparison is withheld if the runtime identity changed
-    during collection or cannot be verified.
+
+def _field_state(value):
+    # Copy only the public field-state schema, not a sealed record/sourceText.
+    if type(value) is not dict or type(value.get('present')) is not bool:
+        raise ValueError('UI_FIELD_STATE')
+    if set(value) != ({'present', 'value'} if value['present'] else {'present'}):
+        raise ValueError('UI_FIELD_STATE')
+    return copy.deepcopy(value)
+
+
+def metadata(runtime, token, *, now=None):
+    """Read one coherent editor generation. Unknown never means unmodified.
+
+    snapshot() only constructs absent new profiles in memory. load() validates
+    sealed persisted records using their existing contracts; they are not
+    reinterpreted or written by this presentation layer.
     """
     with runtime.lock:
         before = runtime.status()
         source, proof, effective, generation = runtime.snapshot(token)
         latest, stored = runtime.store.load()
-        if latest != generation:
+        if latest != generation or not _hash(generation):
             raise ValueError('UI_EXTENSION_CHANGED')
         after = runtime.status()
-        collection_stable = (proof.get('beforeSha256') is not None
+        collection_stable = (_hash(proof.get('beforeSha256'))
                              and proof.get('beforeSha256') == proof.get('afterSha256'))
         keys = ('activeBundle', 'configSha256', 'sourceFingerprint', 'InvocationID')
-        coherent = (collection_stable and before.get('identityVerified') is True
-                    and after.get('identityVerified') is True
-                    and all(before.get(k) == after.get(k) for k in keys)
-                    and type(after.get('sourceFingerprint')) is str)
+        coherent = (collection_stable and _identity(before) and _identity(after)
+                    and all(before[k] == after[k] for k in keys))
         pins = fingerprints(source, effective)
-        profiles = {}
-        specs = {}
-        for kind, section in (('configs', 'global'), ('dnss', 'dns'), ('groups', 'group')):
+        if not _hash(pins.get('sourceSha256')):
+            raise ValueError('UI_SOURCE_FINGERPRINT')
+        profiles, specs, records, orphan_counts = {}, {}, {}, {}
+        for kind, section in KINDS:
             saved = stored['extensions']['records'].get(section, {})
-            rows = []
+            if type(saved) is not dict or type(source['metadata'][kind]) is not list:
+                raise ValueError('UI_PROFILE_SET')
+            rows, public_fields, seen = [], {}, set()
             for item in source['metadata'][kind]:
                 ident = _profile_id(item['id'])
+                if ident in seen:
+                    raise ValueError('UI_DUPLICATE_PROFILE')
+                seen.add(ident)
                 name = item.get('name')
                 if type(name) is not str:
                     raise ValueError('UI_PROFILE_NAME')
+                bound = ident in saved
                 rows.append({'id': ident, 'name': name,
-                             'selected': item.get('selected') is True,
-                             'bound': ident in saved})
-            profiles[section] = rows
+                             'selected': item.get('selected') is True, 'bound': bound})
+                if bound:
+                    record = saved[ident]
+                    if type(record) is not dict or type(record.get('fields')) is not dict:
+                        raise ValueError('UI_FIELD_STATE')
+                    public_fields[ident] = {field: _field_state(state)
+                                           for field, state in record['fields'].items()}
+            profiles[section], records[section] = rows, public_fields
+            orphan_counts[section] = len(set(saved) - seen)
             specs[section] = {
-                field: {'type': value['type']}  # No guessed effective defaults.
+                field: {'type': value['type']}
                 for field, value in extension_fields(section).items()
             }
+        # A Store writer in another process does not share runtime.lock.
+        # Detect a generation change even after projection work; frontend still
+        # supplies CAS on every write, so a later change is safely rejected.
+        final_generation, _ = runtime.store.load()
+        if final_generation != generation:
+            raise ValueError('UI_EXTENSION_CHANGED')
         return {
-            'schemaVersion': 1,
+            'schemaVersion': 2,
             'observedAt': int(time.time()) if now is None else int(now),
-            'generation': generation,
-            'profiles': profiles,
-            'specs': specs,
+            'generation': generation, 'profiles': profiles, 'specs': specs,
+            'records': records, 'orphanRecordCounts': orphan_counts,
             'nodeCount': len(source['nodes']),
             'groupCount': len(source['metadata']['groups']),
             'versions': {'daed': DAED_VERSION, 'dae': DAE_VERSION,
                          'scope': 'installed-contract'},
             'sourceFingerprint': pins['sourceSha256'],
-            'runningSourceFingerprint': after.get('sourceFingerprint'),
+            'runningSourceFingerprint': after.get('sourceFingerprint') if _hash(after.get('sourceFingerprint')) else None,
+            'runningIdentity': {k: after.get(k) for k in keys} if _identity(after) else None,
             'comparisonVerified': coherent,
-            'modified': (pins['sourceSha256'] != after['sourceFingerprint']) if coherent else None,
+            'modified': pins['sourceSha256'] != after['sourceFingerprint'] if coherent else None,
             'collectionStable': collection_stable,
         }

@@ -86,7 +86,7 @@ class WebTests(unittest.TestCase):
         self.assertEqual(self.req('/api/bind-extensions',{})[0],401)
         status,body,_=self.req('/app.js')
         self.assertEqual(status,200)
-        self.assertIn(b"api('bind-extensions', {})",body)
+        self.assertRegex(body, rb"api\('bind-extensions',\s*\{\}\)")
     def test_replay_only_executes_once(self):
         self.login();status,_,_=self.req('/api/preview',{});self.assertEqual(status,200)
         status,raw,_=self.req('/api/preview',{});self.assertEqual(status,401);self.assertEqual(json.loads(raw)['error'],'CSRF_REJECTED');self.assertEqual(self.backend.calls,[('preview',)])

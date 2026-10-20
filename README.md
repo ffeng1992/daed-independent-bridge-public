@@ -242,3 +242,11 @@ capability bounding and ambient sets for the official node latency probe's
 `SO_MARK`. `NoNewPrivileges` and the other sandbox restrictions remain enabled;
 `CAP_NET_ADMIN` and `CAP_BPF` are not granted. Official upstream binaries and Web
 assets remain unmodified.
+
+### Daed 登录入口
+
+打开 `http://<管理IP>:2023/`。Bridge 同源入口先通过官方 API 确认已有登录，
+再进入未经修改的官方管理首页；旧的 `/#/setup` 收藏不会让有效登录重新进入向导。
+没有有效令牌时仍使用官方账号登录流程，首次零账号初始化和退出行为保持官方原样。
+接口暂时不可用时保留已有登录信息并提示重试，不把网络故障当作密码失效。
+不同 IP、域名、协议或端口属于不同浏览器存储空间，请固定使用同一个管理入口。

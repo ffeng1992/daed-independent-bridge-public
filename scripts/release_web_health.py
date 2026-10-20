@@ -45,7 +45,7 @@ def check_dashboard(*,setup=False):
             raise RuntimeError('DAED_WEB_HTTP:'+path+':'+str(exc.code)) from None
     for name in ('index.html',next(x['path'] for x in pin['files'] if x['path'].startswith('assets/index-') and x['path'].endswith('.js'))):
         expected=next(x['sha256'] for x in pin['files'] if x['path']==name)
-        need(hashlib.sha256(get('/' if name=='index.html' else '/'+name)).hexdigest()==expected,'DAED_WEB_OFFICIAL_ASSET_HASH')
+        need(hashlib.sha256(get('/dashboard/' if name=='index.html' else '/'+name)).hexdigest()==expected,'DAED_WEB_OFFICIAL_ASSET_HASH')
     token=None if setup else (CFG/'attestor.token').read_text().strip()
     query=json.dumps({'query':'{ numberUsers }' if setup else '{ configs { id selected } groups { id } }'}).encode()
     def graphql(url):

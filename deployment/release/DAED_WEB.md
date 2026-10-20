@@ -21,9 +21,15 @@ No npm install or frontend rebuild runs on the user's machine.
 Official
 [defaults](https://github.com/daeuniverse/daed/blob/b3043aa7ce07c774c65e546112aa2c7a1c12edb5/apps/web/src/constants/default.ts)
 use `${location.protocol}//${location.hostname}:2023/graphql`.
-The frontend is served on HTTP port 2023, matching that default without a launcher
-or localStorage rewriting. nginx serves the original index.html at `/` and proxies
-same-origin `/graphql` to the loopback-only API backend on port 2024.
+The frontend is served on HTTP port 2023. A small Bridge-owned same-origin entry
+at `/` verifies an existing browser token through the official `user` query.
+Only after verification does it select the same-origin GraphQL endpoint and open
+the original dashboard at `/dashboard/#/`. This handles old `/#/setup` bookmarks
+without modifying upstream files. Missing or rejected tokens go to the original
+`/dashboard/#/setup` login flow; network failures do not erase stored credentials.
+The official index and all 483 static resources remain byte-for-byte unchanged.
+Same-origin `/graphql` proxies through the runtime adapter on 2025 to API-only
+2024. No password, token or permanent authenticated URL is shipped in the entry.
 
 - Daed Web: `http://<webAddress>:2023/`, configuration management.
 - Bridge Web: `https://<webAddress>:8443/`, independent DAE control and real state.

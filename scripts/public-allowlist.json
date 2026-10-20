@@ -91,6 +91,8 @@
   "deployment/release/PROVENANCE.md",
   "deployment/release/README.md",
   "deployment/release/RUNTIME_ADAPTER.md",
+  "deployment/release/daed-web-entry/connect.js",
+  "deployment/release/daed-web-entry/index.html",
   "deployment/release/settings.example.json",
   "deployment/release/units/bridge-lan-dns.service",
   "deployment/release/units/bridge-management-recovery.service",

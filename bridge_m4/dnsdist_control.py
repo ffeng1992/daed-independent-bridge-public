@@ -63,5 +63,3 @@ class DnsdistControl:
             raise SyncError("invalid backend action")
         method = "setUp" if state == UP else "setDown"
         self._run(f"getServer({backend.index}):{method}()")
-
-

@@ -17,12 +17,12 @@ ENDPOINT = 'http://127.0.0.1:2024/graphql'
 LIMIT = 16 * 1024 * 1024
 
 
-def upstream(raw, authorization=''):
+def upstream(raw, authorization='', timeout=30):
     headers = {'Content-Type': 'application/json'}
     if authorization:
         headers['Authorization'] = authorization
     request = urllib.request.Request(ENDPOINT, data=raw, headers=headers)
-    with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(request, timeout=30) as response:
+    with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(request, timeout=timeout) as response:
         body = response.read(LIMIT + 1)
         if len(body) > LIMIT:
             raise RuntimeError('UPSTREAM_RESPONSE_LIMIT')
@@ -69,7 +69,7 @@ def touches_runtime(document, operation, schema):
         for node in selection.selections:
             if isinstance(node, FieldNode):
                 name = node.name.value
-                if (kind == 'Mutation' and name == 'run') or (kind == 'General' and name == 'dae'):
+                if (kind == 'Mutation' and name == 'run') or (kind == 'General' and name == 'dae') or (kind == 'Query' and name == 'nodeLatencies'):
                     return True
                 from graphql import get_named_type
                 typ = schema.get_type(kind)
@@ -89,9 +89,10 @@ def touches_runtime(document, operation, schema):
 
 
 class Adapter:
-    def __init__(self, schema, runtime, forward=upstream):
+    def __init__(self, schema, runtime, forward=upstream, latencies=None):
         self.schema, self.runtime, self.forward = schema, runtime, forward
         self.control_lock = threading.Lock()
+        self.latencies = latencies
 
     def handle(self, raw, authorization):
         value = json.loads(raw)
@@ -118,9 +119,14 @@ class Adapter:
         auth = request('{user{username}}', authorization, self.forward)
         if auth.get('errors') or not (auth.get('data') or {}).get('user'):
             return json.dumps({'errors': [{'message': 'access denied'}]}).encode()
-        context = {'authorization': authorization, 'status': None}
+        context = {'authorization': authorization, 'status': None, 'latencies': None, 'latencyStatus': None}
         def resolver(source, info, **args):
             kind, field = info.parent_type.name, info.field_name
+            if kind == 'Query' and field == 'nodeLatencies' and self.latencies is not None:
+                if context['latencies'] is None:
+                    context['latencies'], context['latencyStatus'] = self.latencies.read(authorization, auth['data']['user']['username'])
+                ids = args.get('ids')
+                return [r for r in context['latencies'] if ids is None or r['id'] in ids]
             if kind == 'Mutation' and field == 'run':
                 with self.control_lock:
                     return self.runtime.run(authorization.removeprefix('Bearer '), args['dry'])
@@ -154,7 +160,10 @@ class Adapter:
             return None
         result = execute_sync(self.schema, document, variable_values=value.get('variables'),
                               operation_name=value.get('operationName'), field_resolver=resolver)
-        return json.dumps(result.formatted).encode()
+        formatted = result.formatted
+        if context['latencyStatus'] is not None:
+            formatted['extensions'] = {'bridgeNodeLatencies': context['latencyStatus']}
+        return json.dumps(formatted).encode()
 
 
 class Controls:
@@ -264,7 +273,8 @@ def main():
     schema = build_client_schema(introspection['data'])
     server = ThreadingHTTPServer(('127.0.0.1', 2025), Handler)
     server.daemon_threads = True
-    server.adapter = Adapter(schema, Controls(Runtime()))
+    from .node_latencies import NodeLatencies
+    server.adapter = Adapter(schema, Controls(Runtime()), latencies=NodeLatencies(upstream))
     server.serve_forever()
 
 if __name__ == '__main__':

@@ -204,12 +204,22 @@ an external equivalent runtime metrics API. The original Daed Web
 Traffic Overview therefore shows zero values. These values must not
 be interpreted as real traffic statistics.
 
-**Official node latency upstream limitation:** A single-node
-`testNodeLatencies` request timed out when sent directly to the official
-daed API-only backend during production verification. The bridge forwards
-this operation unchanged and does not synthesize latency results. A shorter
-timeout through the Web proxy can surface as a bridge request error; the
-official backend must return before latency can be displayed.
+**Node latency results:** The AST adapter serves `nodeLatencies` from a bounded,
+in-memory cache of real official `testNodeLatencies(ids)` results. It never calls
+the official all-node refresh query. Every read verifies current node identities;
+changed/deleted nodes and measurements older than ten minutes are omitted (the
+original Web displays no data). Original measured timestamps and failure states
+are preserved, and no latency is estimated. Background probes prefer group members,
+use batches of at most two, one worker, a 12-second timeout and at least 30 seconds
+between successful batches. Completed upstream errors allow one retry after a
+120-second cooldown. A transport timeout opens the circuit until the management
+adapter restarts: the official backend may continue after client disconnect, so
+additional automatic requests would be unsafe. `extensions.bridgeNodeLatencies`
+and the adapter journal explicitly report unavailable/circuit-open states. This
+is not a claim that official probing succeeded. Manual `testNodeLatencies`
+requests retain the official operation and response semantics; the official
+single-node probing path can itself stall. Restarting the adapter is a management
+operation and does not restart official DAE.
 
 This limitation alone is not a release blocker. The completed
 [official Web field matrix](docs/WEB-FIELD-MATRIX.md) retains 18 upstream failures;

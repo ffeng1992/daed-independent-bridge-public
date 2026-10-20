@@ -91,9 +91,27 @@ http {
             alias /opt/bridge-daed-web-entry/connect.js;
             add_header Cache-Control "no-store" always;
         }
-        # Serve upstream bytes unchanged and retain the existing asset cache.
+        # Both public entry paths handle old hash bookmarks in the browser.
+        location = /dashboard { return 308 /dashboard/; }
+        location = /dashboard/ {
+            root /opt/bridge-daed-web-entry;
+            try_files /index.html =404;
+            add_header Cache-Control "no-store" always;
+        }
+        location = /dashboard/index.html {
+            root /opt/bridge-daed-web-entry;
+            try_files /index.html =404;
+            add_header Cache-Control "no-store" always;
+        }
+        # The frame serves the original HTML/assets, without injection or rewriting.
         location /dashboard/assets/ { rewrite ^/dashboard(/assets/.*)$ $1 last; }
-        location /dashboard/ { alias /opt/bridge-daed-web/; }
+        location /official/assets/ { rewrite ^/official(/assets/.*)$ $1 last; }
+        location /official/ {
+            alias /opt/bridge-daed-web/;
+            add_header X-Frame-Options SAMEORIGIN always;
+            add_header Content-Security-Policy "frame-ancestors 'self'" always;
+            add_header Cache-Control "no-store" always;
+        }
         location = /graphql {
             proxy_pass http://127.0.0.1:2025/graphql;
             proxy_http_version 1.1;

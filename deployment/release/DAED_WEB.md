@@ -21,12 +21,18 @@ No npm install or frontend rebuild runs on the user's machine.
 Official
 [defaults](https://github.com/daeuniverse/daed/blob/b3043aa7ce07c774c65e546112aa2c7a1c12edb5/apps/web/src/constants/default.ts)
 use `${location.protocol}//${location.hostname}:2023/graphql`.
-The frontend is served on HTTP port 2023. A small Bridge-owned same-origin entry
-at `/` verifies an existing browser token through the official `user` query.
-Only after verification does it select the same-origin GraphQL endpoint and open
-the original dashboard at `/dashboard/#/`. This handles old `/#/setup` bookmarks
-without modifying upstream files. Missing or rejected tokens go to the original
-`/dashboard/#/setup` login flow; network failures do not erase stored credentials.
+The frontend is served on HTTP port 2023. A small Bridge-owned same-origin host
+at `/` and `/dashboard/` verifies an existing browser token through the official
+`user` query, using the same Bearer authorization format as the official UI.
+It displays the unmodified upstream page at `/official/` in a same-origin frame.
+The upstream files are neither injected into nor rewritten. Only this raw page
+permits same-origin framing; other origins cannot frame it.
+Both old `/#/setup` and `/dashboard/#/setup` bookmarks are checked in the browser,
+since a server cannot see URL fragments. Official login still uses the original
+form and backend. A storage event after login triggers a real identity check,
+then opens home even if the upstream keyed QueryProvider remounts Setup at step 1.
+Logout/rejected tokens return to the official form; network failures preserve the
+stored token and display Retry without admitting an unverified session.
 The official index and all 483 static resources remain byte-for-byte unchanged.
 Same-origin `/graphql` proxies through the runtime adapter on 2025 to API-only
 2024. No password, token or permanent authenticated URL is shipped in the entry.

@@ -77,7 +77,7 @@ Web默认由提供的IPv4地址在8443端口提供TLS服务；初始自签证书
 官方 **Daed Web v1.28.0** 独立提供于 `http://<webAddress>:2023/`，负责节点、订阅、组、routing 和 DNS 配置。
 **Bridge Web** 保留在 `https://<webAddress>:8443/`，负责真实独立 DAE 状态、preview、validate/apply 和生命周期。
 Daed Web 使用官方默认 HTTP 2023，账号由官方 backend 管理；Bridge Web 使用 TLS 和独立认证。
-Daed Web 根入口直接提供官方 index.html；官方默认同源 `/graphql` 由 nginx 转发到 loopback backend。
+Daed Web 的同源 Bridge 入口承载原版官方页面；官方默认同源 `/graphql` 由 nginx 转发到 loopback backend。
 不取消 `--api-only`；官方页面 Run 按钮不是独立 DAE 的启动入口。
 详见 [官方前端来源和连接方式](deployment/release/DAED_WEB.md)。
 代理节点和路由由用户后续配置，安装器不虚构订阅或代理能力。
@@ -246,7 +246,8 @@ assets remain unmodified.
 ### Daed 登录入口
 
 打开 `http://<管理IP>:2023/`。Bridge 同源入口先通过官方 API 确认已有登录，
-再进入未经修改的官方管理首页；旧的 `/#/setup` 收藏不会让有效登录重新进入向导。
-没有有效令牌时仍使用官方账号登录流程，首次零账号初始化和退出行为保持官方原样。
+再以同源框架承载未经修改的官方管理页面；根路径及旧 `/dashboard/#/setup` 收藏均受入口保护。
+官方表单登录成功后，入口通过真实 `user` 查询确认身份，再离开因令牌变化重新挂载的向导。
+没有有效令牌时仍使用框架内的官方账号登录流程，首次零账号初始化和退出行为保持官方原样。
 接口暂时不可用时保留已有登录信息并提示重试，不把网络故障当作密码失效。
 不同 IP、域名、协议或端口属于不同浏览器存储空间，请固定使用同一个管理入口。

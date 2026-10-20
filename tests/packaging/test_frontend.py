@@ -60,7 +60,10 @@ class FrontendTests(unittest.TestCase):
         self.assertIn('index index.html;',config)
         self.assertIn('root /opt/bridge-daed-web-entry;',config)
         self.assertIn('try_files /index.html =404;',config)
-        self.assertIn('location /dashboard/ { alias /opt/bridge-daed-web/; }',config)
+        self.assertIn('location = /dashboard/',config)
+        self.assertIn('location /official/',config)
+        self.assertIn('X-Frame-Options SAMEORIGIN',config)
+        self.assertIn("frame-ancestors 'self'",config)
         self.assertIn('proxy_pass http://127.0.0.1:2025/graphql;',config)
         self.assertIn('proxy_read_timeout 180s;',config)
         self.assertNotIn('listen 192.0.2.1:2024',config)
@@ -91,58 +94,88 @@ class FrontendTests(unittest.TestCase):
         self.assertTrue(any('dae.service' in c.args for c in calls.call_args_list))
 
 class EntryTests(unittest.TestCase):
-    def exercise(self, token='synthetic-browser-token', response=None, status=200, failure=False):
+    def exercise(self, token='synthetic-browser-token', response=None, status=200, failure=False, actions=None):
         import subprocess
         script=r'''
 const fs=require('fs'),vm=require('vm');
 const input=JSON.parse(process.argv[1]);
 const values=new Map(Object.entries(input.token===null?{}:{token:input.token,endpointURL:'https://obsolete.invalid/graphql'}));
-const elements={status:{},retry:{addEventListener(){}}}, redirects=[],requests=[];
-const context={document:{getElementById:id=>elements[id]},
- localStorage:{getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)},
- location:{origin:'http://192.0.2.1:2023',replace:p=>redirects.push(p),reload(){}},
+const requests=[],historyPaths=[],handlers={},frameHandlers={};
+const location={origin:'http://192.0.2.1:2023',hash:'#/setup'};
+const frame={hidden:true,contentWindow:{location:{pathname:'about:blank',hash:''}}};
+Object.defineProperty(frame,'src',{set(v){this.target=v;const [path,hash]=v.split('#');this.contentWindow.location={origin:location.origin,pathname:path,hash:'#'+hash};},get(){return this.target;}});
+frame.addEventListener=(key,fn)=>frameHandlers[key]=fn;
+const elements={status:{},message:{},dashboard:frame,retry:{addEventListener(){}}};
+const storage={getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)};
+const context={document:{getElementById:id=>elements[id]},window:{addEventListener:(k,f)=>handlers[k]=f},
+ localStorage:storage,location,history:{replaceState(_a,_b,path){historyPaths.push(path);location.hash=path.slice(path.indexOf('#'));}},
  AbortController,setTimeout,clearTimeout,fetch:async(url,options)=>{
- requests.push({url,authorizationPresent:!!options.headers.Authorization,query:JSON.parse(options.body).query});
+ requests.push({url,authorizationBearer:options.headers.Authorization.startsWith('Bearer '),query:JSON.parse(options.body).query});
  if(input.failure)throw Error('synthetic offline');
  return {status:input.status,ok:input.status===200,json:async()=>input.response};
  }};
 (async()=>{await vm.runInNewContext(fs.readFileSync('deployment/release/daed-web-entry/connect.js','utf8'),context);
- console.log(JSON.stringify({redirects,requests,tokenPresent:values.has('token'),endpoint:values.get('endpointURL'),retry:elements.retry.hidden===false}));})();
+ for(const action of input.actions||[]){
+ if(action==='login')values.set('token','synthetic-new-login');
+ if(action==='logout')values.delete('token');
+ if(action==='login'||action==='logout'){handlers.storage({key:'token',storageArea:storage});await new Promise(r=>setTimeout(r,0));}
+ if(action==='old-bookmark'){location.hash='#/setup';handlers.hashchange();}
+ }
+ console.log(JSON.stringify({frame:frame.target,history:historyPaths,requests,tokenPresent:!!values.get('token'),endpoint:values.get('endpointURL'),retry:elements.retry.hidden===false,frameHidden:frame.hidden}));})();
 '''
-        raw=subprocess.check_output(['node','-e',script,json.dumps({'token':token,'response':response,'status':status,'failure':failure})],cwd=Path(__file__).resolve().parents[2],timeout=10)
+        raw=subprocess.check_output(['node','-e',script,json.dumps({'token':token,'response':response,'status':status,'failure':failure,'actions':actions})],cwd=Path(__file__).resolve().parents[2],timeout=10)
         return json.loads(raw)
 
     def test_valid_session_ignores_obsolete_setup_route(self):
         value=self.exercise(response={'data':{'user':{'username':'synthetic'}}})
-        self.assertEqual(value['redirects'],['/dashboard/#/'])
+        self.assertEqual(value['frame'],'/official/#/')
         self.assertTrue(value['tokenPresent'])
         self.assertEqual(value['endpoint'],'http://192.0.2.1:2023/graphql')
         self.assertEqual(value['requests'][0]['url'],'/graphql')
+        self.assertTrue(value['requests'][0]['authorizationBearer'])
         self.assertEqual(value['requests'][0]['query'],'{ user { username } }')
 
     def test_missing_session_uses_official_login_without_api_call(self):
         value=self.exercise(token=None)
-        self.assertEqual(value['redirects'],['/dashboard/#/setup'])
+        self.assertEqual(value['frame'],'/official/#/setup')
         self.assertEqual(value['requests'],[])
+
+    def test_real_storage_event_after_official_login_leaves_remounted_setup(self):
+        value=self.exercise(token=None,response={'data':{'user':{'username':'synthetic'}}},actions=['login'])
+        self.assertEqual(value['frame'],'/official/#/')
+        self.assertEqual(len(value['requests']),1)
+        self.assertTrue(value['tokenPresent'])
+
+    def test_clicking_old_bookmark_with_valid_session_stays_home(self):
+        value=self.exercise(response={'data':{'user':{'username':'synthetic'}}},actions=['old-bookmark'])
+        self.assertEqual(value['frame'],'/official/#/')
+        self.assertEqual(len(value['requests']),1)
+
+    def test_official_logout_returns_to_official_setup(self):
+        value=self.exercise(response={'data':{'user':{'username':'synthetic'}}},actions=['logout'])
+        self.assertEqual(value['frame'],'/official/#/setup')
+        self.assertFalse(value['tokenPresent'])
 
     def test_expired_or_rejected_token_cannot_enter_dashboard(self):
         for code in (200,401,403):
             with self.subTest(code=code):
                 value=self.exercise(response={'errors':[{'message':'access denied'}]},status=code)
-                self.assertEqual(value['redirects'],['/dashboard/#/setup'])
+                self.assertEqual(value['frame'],'/official/#/setup')
                 self.assertFalse(value['tokenPresent'])
 
-    def test_network_failure_never_clears_token_or_redirects(self):
+    def test_network_failure_never_clears_token_or_enters_dashboard(self):
         value=self.exercise(failure=True)
         self.assertTrue(value['tokenPresent']);self.assertTrue(value['retry'])
-        self.assertEqual(value['redirects'],[])
+        self.assertIsNone(value.get('frame'))
+        self.assertTrue(value['frameHidden'])
 
     def test_unknown_server_error_does_not_logout_or_bypass_auth(self):
         for response in ({'errors':[{'message':'database unavailable'}]},{'data':{'user':None}},{'data':{'user':{'id':'wrong schema'}}}):
             with self.subTest(response=response):
                 value=self.exercise(response=response)
                 self.assertTrue(value['tokenPresent']);self.assertTrue(value['retry'])
-                self.assertEqual(value['redirects'],[])
+                self.assertIsNone(value.get('frame'))
+                self.assertTrue(value['frameHidden'])
 
     def test_entry_is_packaged_separately_from_original_assets(self):
         import shutil

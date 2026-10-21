@@ -206,7 +206,9 @@ v2fly/domain-list-community 的 `dlc.dat` 和 v2fly/geoip 的 `geoip.dat`。
 
 现有 `/opt/bridge-official/assets` 和版本锁不被覆盖。动态数据保存在
 `/var/lib/daed-independent-bridge/geodata`，保留当前及前一完整数据代。
-首次手工数据必须与官方最新 SHA 匹配完成一次 NO_CHANGE，才能自动更新；
+首次更新无需先完成 NO_CHANGE，也不要求手工 DAT 匹配旧发行哈希；
+旧数据仅用于内容比较与备份，新代际以官方 SHA、结构/分类及实际 DAE validate 验证。
+启用动态代际后，加载与校验使用该代际自身的身份，旧固定哈希只用于静态回退；
 不能确认来源、下载失败或 DAE 不健康时保留当前数据并报告失败。
 已停用的 policy DNS 不会被重新启用，此功能不改变既有 DNS 架构。
 

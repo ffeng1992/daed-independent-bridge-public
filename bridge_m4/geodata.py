@@ -98,6 +98,13 @@ def selected_dir(root=BASE, official=OFFICIAL, *, uid=0):
     return folder if folder is not None else Path(official)
 
 
+def selected_hashes_from_folder(folder, *, uid=0):
+    """Read authenticated generation bytes only, no old release pin lookup."""
+    verified, _ = verify_generation_folder(folder, uid=uid)
+    return {name: sha(verify_file(verified / name, uid=uid, max_size=LIMITS[name]))
+            for name in DATASETS}
+
+
 def selected_hashes(root=BASE, official=OFFICIAL, *, uid=0):
     folder = selected_dir(root, official, uid=uid)
     return {name: sha(verify_file(folder / name, uid=uid, max_size=LIMITS[name]))

@@ -103,16 +103,16 @@ class DataTests(unittest.TestCase):
         self.assertEqual(len(self.server.requests), 4)
         self.assertFalse(any(v.endswith('.dat') for v in self.server.requests))
 
-    def test_first_unknown_manual_release_is_not_replaced(self):
+    def test_first_manual_release_updates_without_prior_no_change(self):
         (self.root / 'last-check.json').unlink()
         self.remote['geoip.dat'] = b'new-ip'
         self.server = LocalServer(self.remote)
         output = self.update()
-        self.assertEqual(output['result'], 'CHECK_FAILED')
-        self.assertEqual(output['error'], 'GEODATA_INITIAL_MANUAL_BASELINE_UNVERIFIED')
-        self.assertEqual(geodata.current_id(self.root), None)
-        self.assertFalse(any(url.endswith('.dat') for url in self.server.requests))
-        self.assertEqual(self.restarts, [])
+        self.assertEqual(output['result'], 'UPDATED')
+        self.assertIsNotNone(geodata.current_id(self.root))
+        self.assertEqual(len(self.restarts), 1)
+        self.assertEqual(len(self.validations), 1)
+        self.assertEqual((self.original / 'geoip.dat').read_bytes(), self.old['geoip.dat'])
 
     def test_only_changed_file_downloaded_and_both_data_verified(self):
         self.remote['geosite.dat'] = b'new-domain-list-data'
@@ -232,6 +232,24 @@ class DataTests(unittest.TestCase):
 
 
 class RuntimeIntegrationTests(unittest.TestCase):
+    def test_dynamic_validation_ignores_old_release_pins(self):
+        from bridge_m4 import validation
+        folder = pathlib.Path('/isolated/new-generation')
+        pins = {'geoip.dat':'new-ip','geosite.dat':'new-site'}
+        with mock.patch.object(validation,'asset_identity',side_effect=RuntimeError('OLD_RELEASE_MISMATCH')) as old, mock.patch.object(geodata,'verify_generation_folder',return_value=(folder,{})), mock.patch.object(geodata,'selected_hashes_from_folder',return_value=pins), mock.patch.object(pathlib.Path,'read_bytes',return_value=b'official'), mock.patch.object(validation.subprocess,'run',return_value=mock.Mock(returncode=0)) as run:
+            result=validation.validate(pathlib.Path('/candidate.dae'),hashlib.sha256(b'official').hexdigest(),assets_override=folder)
+            self.assertEqual(result['assetSha256'],pins)
+            self.assertEqual(run.call_args.kwargs['env']['DAE_LOCATION_ASSET'],str(folder))
+            old.assert_not_called()
+
+    def test_static_environment_still_requires_old_release_identity(self):
+        from bridge_m4 import validation
+        with mock.patch.object(geodata,'selected_dir',return_value=validation.ASSETS), mock.patch.object(validation,'asset_identity',side_effect=RuntimeError('OLD_RELEASE_MISMATCH')):
+            with self.assertRaisesRegex(RuntimeError,'OLD_RELEASE_MISMATCH'):
+                validation.runtime_asset_env()
+            with self.assertRaisesRegex(RuntimeError,'OLD_RELEASE_MISMATCH'):
+                validation.verified_selected_hashes()
+
     def test_retired_policy_dns_does_not_require_release_configuration(self):
         response = mock.Mock(stdout='inactive\n')
         with mock.patch.object(updater.subprocess, 'run', return_value=response):

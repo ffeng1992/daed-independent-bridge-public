@@ -170,22 +170,6 @@ def publish(root, content, remote, *, uid=0):
     return identity, destination
 
 
-def first_update_baseline(root, old_hashes, *, uid=0):
-    """Require a verified previous NO_CHANGE when adopting manually pinned data.
-
-    Without an earlier check of those exact bytes we cannot establish whether
-    the manual Shanghai data are *newer* than the latest advertised release.
-    """
-    marker = Path(root) / 'last-check.json'
-    try:
-        raw = geodata.verify_file(marker, uid=uid, max_size=32768)
-        last = json.loads(raw)
-    except (OSError, ValueError, RuntimeError):
-        return False
-    return (type(last) is dict and last.get('result') == 'NO_CHANGE'
-            and last.get('assets') == old_hashes)
-
-
 def record(root, value):
     root = Path(root)
     provision(root)
@@ -326,10 +310,7 @@ def once(*, root=geodata.BASE, official=None,
             outcome.update(result='NO_CHANGE', assets=old_hashes,
                            message='两份数据都已是最新版，未下载DAT，未重启DAE')
             return outcome
-        # Before the first generation exists, Shanghai may use manually updated
-        # static DAT newer than the latest release. Never replace unknown data.
-        if previous is None and not first_update_baseline(root, old_hashes, uid=owner):
-            raise RuntimeError('GEODATA_INITIAL_MANUAL_BASELINE_UNVERIFIED')
+        # Existing bytes are comparison/rollback data, not an old-release gate.
         latest = dict(originals)
         for name in changed:
             expected = remote[name]['sha256']

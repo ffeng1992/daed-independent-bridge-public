@@ -20,13 +20,11 @@ def asset_identity():
 
 
 def validate(candidate, expected, *, assets_override=None):
-    before=asset_identity()
-    before_selected = verified_selected_hashes(assets_override)
+    before = verified_selected_hashes(assets_override)
     check(digest(BINARY.read_bytes())==expected,'VALIDATOR_HASH')
     result=subprocess.run([str(BINARY),'validate','-c',str(candidate)],env=runtime_asset_env(assets_override),capture_output=True,timeout=30)
     check(digest(BINARY.read_bytes())==expected,'VALIDATOR_CHANGED')
-    check(asset_identity()==before,'OFFICIAL_ASSET_CHANGED')
-    check(verified_selected_hashes(assets_override) == before_selected, 'GEODATA_SELECTED_CHANGED')
+    check(verified_selected_hashes(assets_override) == before, 'GEODATA_SELECTED_CHANGED')
     check(result.returncode==0,'VALIDATE_FAILED')
     return {'exitCode':result.returncode,'binarySha256':expected,'assetSha256':before,'output':'[REDACTED]'}
 
@@ -39,16 +37,17 @@ def verified_selected_hashes(assets_override=None):
         path, _ = geodata.verify_generation_folder(assets_override)
     else:
         path = geodata.selected_dir(official=Path(DAE_ENV['DAE_LOCATION_ASSET']))
-    return {name: geodata.sha(geodata.verify_file(path / name,
-                 max_size=geodata.LIMITS[name])) for name in geodata.DATASETS}
+    if path == Path(DAE_ENV['DAE_LOCATION_ASSET']):
+        return asset_identity()  # Legacy static fallback only.
+    return geodata.selected_hashes_from_folder(path)
 
 
 def runtime_asset_env(assets_override=None):
-    # Enforce the production's existing fixed release/hash identity FIRST.
-    asset_identity()
     from . import geodata
     if assets_override is not None:
         chosen, _ = geodata.verify_generation_folder(assets_override)
     else:
         chosen = geodata.selected_dir(official=Path(DAE_ENV['DAE_LOCATION_ASSET']))
+    if chosen == Path(DAE_ENV['DAE_LOCATION_ASSET']):
+        asset_identity()  # Legacy static fallback only.
     return {**DAE_ENV, 'DAE_LOCATION_ASSET': str(chosen)}

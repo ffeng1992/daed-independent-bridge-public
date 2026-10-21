@@ -18,9 +18,11 @@ MANIFEST = CFG / 'install.json'
 CORE = ('daed-api.service', 'bridge-helper.socket', 'bridge-attestor.service',
         'independent-bridge.service', 'dae.service', 'bridge-graphql.service', 'daed-web.service')
 DNS = ('bridge-policy-dns.service', 'bridge-lan-dns.service')
-TIMERS = ('independent-dns-sync.timer', 'independent-policy-sync.timer')
+TIMERS = ('independent-dns-sync.timer', 'independent-policy-sync.timer',
+          'bridge-geodata-update.timer')
 RECOVERY_TIMER = 'bridge-management-recovery.timer'
-STOP = (RECOVERY_TIMER, *TIMERS, 'bridge-management-recovery.service',
+STOP = (RECOVERY_TIMER, *TIMERS, 'bridge-geodata-update.service',
+        'bridge-management-recovery.service',
         'independent-policy-sync.service', 'independent-dns-sync.service',
         'daed-web.service', 'bridge-graphql.service', 'dae.service', 'independent-bridge.service', 'bridge-attestor.service',
         'bridge-helper.socket', 'bridge-helper.service', 'daed-api.service', *DNS)

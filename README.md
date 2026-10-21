@@ -196,6 +196,29 @@ Configuration/account operations stay in official daed. Independent DAE control
 uses the existing bridge validation, receipt and helper path. See
 [the runtime compatibility contract](deployment/release/RUNTIME_ADAPTER.md).
 
+### GeoData 自动更新
+
+安装后 `bridge-geodata-update.timer` 每天在 Asia/Shanghai 05:30 检查
+v2fly/domain-list-community 的 `dlc.dat` 和 v2fly/geoip 的 `geoip.dat`。
+通过官方发布信息和 SHA-256 校验；两份数据均未变化时不下载 DAT、不重启 DAE。
+只有数据变化、官方 DAE 配置校验通过后才切换完整数据代并重启一次 DAE；
+启动验证失败时恢复上一数据代，更新命令仍返回失败。
+
+现有 `/opt/bridge-official/assets` 和版本锁不被覆盖。动态数据保存在
+`/var/lib/daed-independent-bridge/geodata`，保留当前及前一完整数据代。
+首次手工数据必须与官方最新 SHA 匹配完成一次 NO_CHANGE，才能自动更新；
+不能确认来源、下载失败或 DAE 不健康时保留当前数据并报告失败。
+已停用的 policy DNS 不会被重新启用，此功能不改变既有 DNS 架构。
+
+```sh
+sudo python3 -I /usr/local/bin/bridge-geodata-update status
+sudo systemctl start bridge-geodata-update.service
+systemctl list-timers bridge-geodata-update.timer
+```
+
+检查与发布/Apply 共用互斥锁。默认卸载保留数据；明确 purge 时才删除持久数据。
+定时器会在启动后补执行错过的检查，但不承诺断电或强杀时自动完成数据回滚。
+
 ### Known Limitations
 
 **KNOWN_LIMITATION_TRAFFIC_OVERVIEW — Traffic Overview:**

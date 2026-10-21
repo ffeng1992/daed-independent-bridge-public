@@ -1,0 +1,21 @@
+[Unit]
+Description=Check verified geosite and geoip updates for independent bridge
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/etc/daed-independent-bridge/install.json
+
+[Service]
+Type=oneshot
+# The system manager default is root; retain setuid for the read-only broker client.
+ExecStart=/usr/bin/python3 -I /usr/local/bin/bridge-geodata-update check
+TimeoutStartSec=600
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadWritePaths=/run /var/lib/daed-independent-bridge
+
+[Install]
+WantedBy=multi-user.target

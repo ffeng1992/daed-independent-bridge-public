@@ -1,4 +1,5 @@
 """First real-API probes of the locked Config form, using synthetic VM data."""
+from integration.ui_matrix.evidence_scope import scope_file
 import json
 import time
 from pathlib import Path
@@ -48,7 +49,7 @@ def run():
         except Exception as exc:
             message = str(exc).replace(token, '[REDACTED]').replace(onboarding.PASSWORD, '[REDACTED]')
             records.append({'case': name, 'passed': False, 'errorType': type(exc).__name__, 'error': message})
-        Path('/evidence/ui-global-probe.json').write_text(json.dumps(records, indent=2) + '\n')
+        scope_file(Path('/evidence/ui-global-probe.json')).write_text(json.dumps(records, indent=2) + '\n')
 
     def apply_current(expected=None):
         result = client('import json;from bridge_m4.runtime import Runtime;r=Runtime();p=r.preview(json.load(sys.stdin));v=r.validate(p["previewId"]);print(json.dumps({"preview":p,"validation":v}))', token)
@@ -106,7 +107,7 @@ def run():
             saved, proof = collect(reader)
             value = next(x['global']['tproxyPortProtect'] for x in saved['metadata']['configs'] if x['id'] == created['id'])
             # Persist both sides even when the assertion fails.
-            Path('/evidence/ui-create-false.json').write_text(json.dumps({
+            scope_file(Path('/evidence/ui-create-false.json')).write_text(json.dumps({
                 'write': {'tproxyPortProtect': False}, 'mutationReadback': created['global'],
                 'queryReadback': {'tproxyPortProtect': value}, 'doubleSnapshot': proof}, indent=2)+'\n')
             need(value is False, 'EXPLICIT_FALSE_CHANGED_TO_TRUE')

@@ -5,6 +5,6 @@ cd "$ROOT"
 export PYTHONDONTWRITEBYTECODE=1
 if [ "${1:-}" = "--management-only" ]; then
     shift
-    exec python3 -B -m scripts.release_management_upgrade "$@"
+    exec python3 -B -m scripts.release_management_plan "$@"
 fi
 exec python3 -B -m scripts.release_lifecycle upgrade "$@"

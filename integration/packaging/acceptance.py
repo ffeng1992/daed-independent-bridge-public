@@ -65,6 +65,8 @@ def main():
                 prepare_user()
                 checks.append({'case':stage,'passed':True})
                 if (EVIDENCE/'ui-matrix-enabled').exists():
+                    from integration.ui_matrix.evidence_scope import start_run
+                    os.environ['BRIDGE_MATRIX_RUN_ID']=start_run(SOURCE,EVIDENCE)['runId']
                     stage='ui-field-global-probe'
                     from integration.ui_matrix.global_probe import run as global_probe
                     global_probe()
@@ -99,6 +101,6 @@ def main():
             r=subprocess.run(['journalctl','-u',unit,'--no-pager','-n','20'],capture_output=True)
             (EVIDENCE/(unit+'.log')).write_bytes(r.stdout)
     finally:
-        (EVIDENCE/'packaging-result.json').write_text(json.dumps({'passed':passed,'checkoutSha':(EVIDENCE/'candidate-commit.txt').read_text().strip(),'checks':checks,'officialWebVersion':'1.28.0','webChecks':'HTTP_OFFICIAL_ASSET_HASH_GRAPHQL_BRIDGE_IDENTITY_SINGLE_DAE'},indent=2))
+        (EVIDENCE/'packaging-result.json').write_text(json.dumps({'passed':passed,'upgradeEvidenceScope':'SAME_TREE_LIFECYCLE_ONLY','crossVersionUpgrade':'NOT_RUN','checkoutSha':(EVIDENCE/'candidate-commit.txt').read_text().strip(),'checks':checks,'officialWebVersion':'1.28.0','webChecks':'HTTP_OFFICIAL_ASSET_HASH_GRAPHQL_BRIDGE_IDENTITY_SINGLE_DAE'},indent=2))
     if not passed:raise SystemExit(1)
 if __name__=='__main__':main()

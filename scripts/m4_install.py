@@ -27,11 +27,14 @@ def check(value,code):
 def digest(body):return hashlib.sha256(body).hexdigest()
 def ctl(*args):return subprocess.run(['/usr/bin/systemctl',*args],capture_output=True,check=True,timeout=20)
 
-def quiescent():
+def quiescent(native_dns=False):
     from scripts.m4_production_dns import UNITS as DNS_UNITS
     for name in UNITS+DNS_UNITS+('bridge-lan-dns.service','bridge-policy-dns.service','daed-web.service',
                                 'bridge-management-recovery.service','bridge-management-recovery.timer',
                                 'bridge-geodata-update.service','bridge-geodata-update.timer'):
+        if native_dns:
+            from bridge_m4.deployment_profile import DNS_UNITS as RETIRED_DNS
+            if name in RETIRED_DNS:continue
         r=ctl('show',name,'--property=ActiveState,MainPID')
         d=dict(line.split('=',1) for line in r.stdout.decode().splitlines() if '=' in line)
         check(d.get('ActiveState')=='inactive' and d.get('MainPID','0')=='0','INSTALL_REQUIRES_INACTIVE_SERVICES')
@@ -51,7 +54,8 @@ def folder(path,mode,uid=0,gid=0):
         st=path.lstat();check(path.is_dir() and not path.is_symlink() and (st.st_uid,st.st_gid,st.st_mode&0o777)==(uid,gid,mode),'DIRECTORY_AUTHORITY')
     else:path.mkdir(mode=mode);os.chown(path,uid,gid);path.chmod(mode)
 
-def payload(production_dns=False,release_profile=False):
+def payload(production_dns=False,release_profile=False,native_dns=False):
+    check(not (native_dns and production_dns),'NATIVE_DNS_PROFILE_CONFLICT')
     files={}
     for directory in PACKAGE_DIRS:
         for p in sorted((ROOT/directory).rglob('*')):
@@ -83,6 +87,9 @@ def payload(production_dns=False,release_profile=False):
     if release_profile:
         from scripts.release_payload import payload as release_payload
         files.update(release_payload(ROOT))
+    if native_dns:
+        from bridge_m4.deployment_profile import DNS_UNITS as RETIRED_DNS
+        files={n:item for n,item in files.items() if n not in {'/etc/systemd/system/'+u for u in RETIRED_DNS}}
     return files
 
 def verify_installed(record):
@@ -92,13 +99,15 @@ def verify_installed(record):
         check(digest(path.read_bytes())==pin['sha256'],'INSTALLED_FILE_CHANGED')
 
 
-def install(upgrade=False,production_dns=False,preserve_assets=False,release_profile=False):
+def install(upgrade=False,production_dns=False,preserve_assets=False,release_profile=False,native_dns=False,extra_paths=(),transaction_context=None):
     check(MANIFEST.exists()==upgrade,'INSTALL_STATE')
-    quiescent()
+    quiescent(native_dns=native_dns)
     from scripts.m4_production_dns import prerequisites,retire_legacy_units,SCRIPT
-    if upgrade and SCRIPT in json.loads(MANIFEST.read_text())["files"]:production_dns=True
+    if upgrade and SCRIPT in json.loads(MANIFEST.read_text())["files"]:
+        check(not native_dns,'NATIVE_EXTERNAL_DNS_MIGRATION_REQUIRES_PLAN')
+        production_dns=True
     if production_dns:prerequisites()
-    files=payload(production_dns,release_profile) # validate everything before filesystem changes
+    files=payload(production_dns,release_profile,native_dns) # validate before filesystem changes
     old=None
     if upgrade:
         old=json.loads(MANIFEST.read_text())
@@ -110,14 +119,16 @@ def install(upgrade=False,production_dns=False,preserve_assets=False,release_pro
                 st=path.lstat()
                 check(stat.S_ISREG(st.st_mode) and st.st_uid==0 and st.st_gid==0 and st.st_nlink==1 and stat.S_IMODE(st.st_mode)==0o444,'ASSET_AUTHORITY')
                 files[name]=(path.read_bytes(),0o444)
-    retire_legacy_units()
+    if not native_dns:retire_legacy_units()
     uid,gid=account('independent-bridge');daed_uid,daed_gid=account('bridge-daed')
     for path,mode,u,g in [('/etc/daed-independent-bridge',0o755,0,0),('/opt/bridge',0o755,0,0),('/opt/bridge-official',0o755,0,0),('/opt/bridge-service',0o755,0,0),(str(BASE),0o711,0,0),(str(BASE/'versions'),0o700,0,0),(str(BASE/'inbox'),0o700,uid,gid),('/var/lib/bridge-m4-client',0o700,uid,gid),('/var/lib/bridge-m4-client/extensions',0o700,uid,gid),('/var/lib/bridge-m4-client/management-recovery',0o770,uid,gid),('/var/lib/bridge-m4-attestation',0o750,0,gid),('/var/lib/bridge-daed',0o700,daed_uid,daed_gid)]:folder(path,mode,u,g)
     # No overwrite of an unmanaged unit/binary on a first install.
     for name in files:
         check(not Path(name).exists() or (old is not None and name in old['files']) or (preserve_assets and name.startswith('/opt/bridge-official/assets/')),'UNMANAGED_INSTALL_FILE')
     from scripts.m4_install_transaction import begin,commit,write
-    begin(set(files)|(set(old['files']) if old else set()))
+    paths=set(files)|(set(old['files']) if old else set())|set(extra_paths)
+    if transaction_context is None:begin(paths)
+    else:begin(paths,context=transaction_context)
     for name,(body,mode) in files.items():
         if old and old['files'].get(name)=={'sha256':digest(body),'mode':mode}:continue
         path=Path(name)
@@ -143,17 +154,18 @@ def install(upgrade=False,production_dns=False,preserve_assets=False,release_pro
     commit()
     print(json.dumps({'installed':True,'servicesStarted':False,'fileCount':len(files)}))
 
-def uninstall(preserve_assets=False):
-    quiescent();record=json.loads(MANIFEST.read_text())
+def uninstall(preserve_assets=False,native_dns=False,transaction_context=None):
+    quiescent(native_dns=native_dns);record=json.loads(MANIFEST.read_text())
     # Verify all bytes first; do not partially remove a modified installation.
     verify_installed(record)
     from scripts.m4_production_dns import retire_legacy_units
-    retire_legacy_units()
+    if not native_dns:retire_legacy_units()
     for name in record['files']:
         if name.startswith('/etc/systemd/system/') and name.endswith(('.service','.socket','.timer')):
             ctl('disable',Path(name).name)
     from scripts.m4_install_transaction import begin,commit
-    begin(record['files'])
+    if transaction_context is None:begin(record['files'])
+    else:begin(record['files'],context=transaction_context)
     for name in record['files']:
         if not (preserve_assets and name.startswith('/opt/bridge-official/assets/')):Path(name).unlink()
     MANIFEST.unlink();ctl('daemon-reload');commit()

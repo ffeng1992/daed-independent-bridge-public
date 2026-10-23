@@ -1,4 +1,6 @@
+from integration.ui_matrix.completion import read as read_completion
 """Local-only TCP path witnesses for the existing disposable matrix VM."""
+from integration.ui_matrix.evidence_scope import scope_file
 import base64
 import json
 import select
@@ -38,9 +40,9 @@ def client_hello_program(delay):
 
 
 def delay_for(port):
-    if not DELAYS.exists():
+    if not scope_file(DELAYS).exists():
         return 0.005 if port == 18082 else 0.12
-    values = json.loads(DELAYS.read_text())
+    values = json.loads(scope_file(DELAYS).read_text())
     if set(values) != {'18082', '18083'} or any(type(v) not in (int, float) or not 0 <= v <= 2 for v in values.values()):
         raise ValueError('FIXTURE_DELAY_SCHEMA')
     return values[str(port)]
@@ -149,7 +151,7 @@ class Server(socketserver.ThreadingTCPServer):
 
 def main():
     import sys
-    if not Path('/evidence/baseline-ready').is_file():
+    if not bool(read_completion('baseline-ready')):
         raise RuntimeError('DISPOSABLE_VM_REQUIRED')
     if sys.argv[1:] == ['proxy']:
         addresses = [('127.0.0.1', port) for port in (18082, 18083)]

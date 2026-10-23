@@ -106,16 +106,10 @@ def wait_healthy(name, kind, timeout=20):
         time.sleep(.25)
 
 
-def load_state():
-    try:
-        value = json.loads(STATE.read_text())
-        need(value.get('schemaVersion') == 1 and type(value.get('services')) is dict
-             and type(value.get('history', [])) is list,
-             'RECOVERY_STATE')
-        value.setdefault('history', [])
-        return value
-    except FileNotFoundError:
-        return {'schemaVersion': 1, 'services': {}, 'history': []}
+def load_state(now=None):
+    from bridge_m4.recovery_state import load
+    now = int(time.time()) if now is None else now
+    return load(STATE, [name for name, _ in SERVICES], now)
 
 
 def save_state(value):
@@ -143,9 +137,9 @@ def append_history(state, event, now, **fields):
 def maintenance_guard(*, allow_web_paused=False):
     need(not PAUSE.exists(), 'MAINTENANCE_PAUSED')
     need(allow_web_paused or not WEB_PAUSE.exists(), 'MAINTENANCE_PAUSED')
-    for marker in ('rollback-required.json', 'checkpoint.json', 'phase1-armed.json',
-                   'phase2-armed.json'):
-        need(not Path('/var/lib/primary-rollback', marker).exists(), 'ROLLBACK_REQUIRED')
+    from bridge_m4.maintenance_state import primary_guard, install_guard
+    primary_guard()
+    install_guard()
     tx = Path('/var/lib/daed-independent-bridge/transaction.json')
     if tx.exists():
         value = json.loads(tx.read_text())
@@ -209,19 +203,23 @@ def log(message, **fields):
 
 
 def recover(name, kind, record, state, now):
-    attempts = [x for x in record.get('attempts', []) if now - x < WINDOW]
-    if len(attempts) >= MAX_ATTEMPTS:
+    from bridge_m4.recovery_budget import permitted, consume
+    if not permitted(record, now):
         log('管理服务连续恢复失败，已停止重复尝试，需要检查。', service=name,
             impact=kind, rateLimited=True)
-        record['attempts'] = attempts
-        if now - int(record.get('lastRateLimitedAt', -WINDOW)) >= WINDOW:
+        if record.get('rateLimitActive') is not True:
+            record['rateLimitActive'] = True
             record['lastRateLimitedAt'] = now
             append_history(state, 'RECOVERY_RATE_LIMITED', now, service=name,
                            impact=kind, needsAttention=True)
         return False
     began = time.monotonic()
     action = 'restart' if show(name).get('ActiveState') == 'active' else 'start'
-    attempts.append(now); record['attempts'] = attempts
+    need(consume(record, now), 'RECOVERY_RATE_LIMITED')
+    record['rateLimitActive'] = False
+    # Persist the safety budget before the restart; a crashed checker cannot
+    # forget an already-issued recovery action.
+    save_state(state)
     try:
         systemctl(action, name)
         ok, error = wait_healthy(name, kind)
@@ -243,18 +241,23 @@ def check_once(now=None):
     now = int(time.time()) if now is None else now
     handles = []
     try:
-        handles = locks()
-        if WEB_PAUSE.exists():
-            process_resume_request(now)
+        # Observations do not reserve the configuration writer's locks. The
+        # expensive manifest/unit checks may overlap an Apply; their result is
+        # never authority to mutate services. Recheck under locks at recovery.
+        if WEB_PAUSE.exists() and WEB_RESUME.exists():
+            handles = locks()
+            try:
+                process_resume_request(now)
+            finally:
+                close_locks(handles); handles = []
         maintenance_guard()
     except (BlockingIOError, RuntimeError, OSError, ValueError, json.JSONDecodeError) as exc:
         log('管理层处于维护或身份异常状态，自动恢复未执行。',
             error=type(exc).__name__ + ':' + str(exc))
         close_locks(handles); return 0
-    # The checker must never hold the Apply lock while probing HTTP endpoints.
-    # A recovery action re-probes the same gates immediately before it runs.
-    close_locks(handles); handles = []
-    state = load_state()
+    # HTTP observations are unlocked. Only a recovery action reserves the
+    # maintenance gates, from its final validation through its actual action.
+    state = load_state(now)
     try:
         state['lastCheckStartedAt'] = now
         for name, kind in SERVICES:
@@ -285,13 +288,19 @@ def check_once(now=None):
                                needsAttention=False)
             if failures >= 2:
                 try:
-                    guarded()
+                    handles = locks()
+                    maintenance_guard()
                 except (BlockingIOError, RuntimeError, OSError, ValueError,
                         json.JSONDecodeError) as exc:
                     log('管理层进入维护状态，本轮恢复已跳过。', service=name,
                         error=type(exc).__name__ + ':' + str(exc))
+                    close_locks(handles); handles = []
                     continue
-            if failures >= 2 and recover(name, kind, record, state, now):
+            try:
+                recovered = failures >= 2 and recover(name, kind, record, state, now)
+            finally:
+                close_locks(handles); handles = []
+            if recovered:
                 record['consecutiveFailures'] = 0
                 record['healthy'] = True
                 record['lastError'] = ''
@@ -302,7 +311,7 @@ def check_once(now=None):
                                'mainPid': int(unit.get('MainPID', '0') or 0)})
         state['lastCheckCompletedAt'] = int(time.time()) if now is None else now
         state['lastCheckResult'] = ('HEALTHY' if all(
-            value.get('healthy') is True for value in state['services'].values())
+            state['services'][name].get('healthy') is True for name, _ in SERVICES)
             else 'DEGRADED')
         save_state(state)
     finally:

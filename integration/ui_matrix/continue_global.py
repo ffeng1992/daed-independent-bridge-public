@@ -3,6 +3,7 @@
 This records partial evidence explicitly. A successful config chain alone never
 becomes a runtime pass. No production endpoint or credential is accepted.
 """
+from integration.ui_matrix.evidence_scope import scope_file
 import json
 import os
 import re
@@ -93,7 +94,9 @@ class Matrix:
         self.reader = HTTPReader('http://127.0.0.1:2024/graphql', self.token)
         self.source, _ = collect(self.reader)
         self.original = next(c for c in self.source['metadata']['configs'] if c['selected'])
-        self.records = json.loads(EVIDENCE.read_text()) if EVIDENCE.exists() else []
+        from integration.ui_matrix.evidence_scope import scope_file
+        self.evidence = scope_file(EVIDENCE)
+        self.records = json.loads(self.evidence.read_text()) if self.evidence.exists() else []
 
     def api(self, query, variables=None):
         headers = {'Content-Type':'application/json'}
@@ -116,9 +119,9 @@ class Matrix:
         return value['data']
 
     def save(self):
-        temporary=EVIDENCE.with_suffix('.new')
+        temporary=self.evidence.with_suffix('.new')
         temporary.write_text(json.dumps(self.records, indent=2)+'\n')
-        temporary.replace(EVIDENCE)
+        temporary.replace(self.evidence)
 
     def apply(self):
         result=client('import json;from bridge_m4.runtime import Runtime;r=Runtime();p=r.preview(json.load(sys.stdin));v=r.validate(p["previewId"]);print(json.dumps({"preview":p,"validation":v}))',self.token)
@@ -138,7 +141,7 @@ class Matrix:
 
     def field(self, key, value):
         identity=key+':'+json.dumps(value,sort_keys=True)
-        if any(r['id']==identity and r.get('baselineRestored') is True for r in self.records):return
+        if any(r['id']==identity and r.get('baselineRestored') is True and r.get('result') in {'PASS','RUNTIME_PASS'} for r in self.records):return
         record={'id':identity,'field':key,'value':value,'stage':'create','result':None}
         self.records.append(record);self.save()
         ident=None
@@ -187,7 +190,7 @@ class Matrix:
 
 def main():
     interfaces=sorted(p.name for p in Path('/sys/class/net').iterdir())
-    Path('/evidence/interfaces.json').write_text(json.dumps(interfaces)+'\n')
+    scope_file(Path('/evidence/interfaces.json')).write_text(json.dumps(interfaces)+'\n')
     # A running official DAE creates its documented host-side dae0 device.
     need(interfaces==['client0','client1','dae0','lan0','lan1','lo','wan0','wanpeer'],'ISOLATED_INTERFACE_SET')
     m=Matrix()

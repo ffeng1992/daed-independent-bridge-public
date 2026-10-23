@@ -175,8 +175,10 @@ def record(root, value):
     provision(root)
     # Preserve the last *successful update* even after NO_CHANGE or a failed check.
     try:
-        history = json.loads((root / 'last-check.json').read_text())
-        if history.get('updatedAt') and not value.get('updatedAt'):
+        from bridge_m4.advisory import optional_json
+        history, _warning = optional_json(root / 'last-check.json', owner=os.geteuid())
+        history = history or {}
+        if type(history.get('updatedAt')) is str and history['updatedAt'] and not value.get('updatedAt'):
             value['updatedAt'] = history['updatedAt']
     except (OSError, ValueError, TypeError):
         pass
@@ -221,17 +223,8 @@ def system_state():
 
 
 def policy_dns_active():
-    for unit in ('bridge-policy-dns.service', 'dae-policy-dns.service'):
-        result = subprocess.run(['/usr/bin/systemctl', 'show', unit,
-                                 '--property=ActiveState', '--value'],
-                                capture_output=True, text=True, timeout=5, check=True)
-        state = result.stdout.strip()
-        require(state in {'active', 'inactive', 'failed', 'activating', 'deactivating'},
-                'GEODATA_POLICY_DNS_STATE_UNKNOWN')
-        if state != 'inactive':
-            require(state == 'active', 'GEODATA_POLICY_DNS_NOT_HEALTHY')
-            return True
-    return False
+    from bridge_m4.deployment_profile import policy_dns_active as selected_consumer
+    return selected_consumer()
 
 
 def verify_staging(directory):
@@ -366,16 +359,16 @@ def print_status(root=geodata.BASE, official=None):
     if official is None:
         from bridge_m4.validation import DAE_ENV
         official = Path(DAE_ENV['DAE_LOCATION_ASSET'])
-    try:
-        data = json.loads((Path(root) / 'last-check.json').read_text())
-    except FileNotFoundError:
-        data = {'result': 'NOT_CHECKED'}
+    from bridge_m4.advisory import optional_json
+    data, history_warning = optional_json(Path(root) / 'last-check.json', owner=os.geteuid())
+    data = data or {'result': 'HISTORY_UNAVAILABLE' if history_warning else 'NOT_CHECKED'}
     folder, version = geodata.generation(root)
     summary = {'result': data.get('result'), 'checkedAt': data.get('checkedAt'),
                'updatedAt': data.get('updatedAt'), 'generation': geodata.current_id(root),
                'datasets': version['datasets'] if version else
                {name: {'sha256': geodata.sha((Path(official) / name).read_bytes()), 'tag': '初始文件'}
                 for name in geodata.DATASETS},
+               'historyWarning': history_warning,
                'lastError': data.get('error')}
     print(json.dumps(summary, ensure_ascii=False, sort_keys=True))
 

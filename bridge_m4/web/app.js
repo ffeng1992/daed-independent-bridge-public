@@ -37,6 +37,7 @@
     function short(s) { return typeof s === 'string' && s.length > 22 ? s.slice(0, 12) + '…' + s.slice(-8) : s || '—'; }
     const HASH = /^[a-f0-9]{64}$/;
     const SERVICES = ['independent-bridge.service', 'daed-api.service', 'bridge-graphql.service', 'bridge-attestor.service', 'daed-web.service'];
+    const EPHEMERAL_ACTIONS = new Set(['preview', 'validate']);
     const WRITE_MARKER = 'bridge-ui-write-v2';
     const WRITE_LOCK = 'bridge-ui-write-v2';
     const S = {
@@ -81,6 +82,9 @@
         try {
             const m=JSON.parse(raw);
             if(!object(m)||m.v!==2||typeof m.id!=='string'||!Number.isFinite(m.at)||!['pending','uncertain'].includes(m.phase)||!Object.hasOwn(ACTION_NAMES,m.action))return invalid();
+            // Legacy preview/validate receipts never authorize a dataplane write.
+            // Ignore only these well-formed markers; malformed/real writes stay locked.
+            if (EPHEMERAL_ACTIONS.has(m.action)) return null;
             return m;
         }catch(_){return invalid();}
     }
@@ -97,6 +101,7 @@
     }
     function markSent(action) {
         if (!S.operation || !ACTION_NAMES[action]) throw new ApiError('REQUEST_REJECTED');
+        if (EPHEMERAL_ACTIONS.has(action)) return;
         const m = readMarker();
         if (m && m.id !== S.operation.id) throw new ApiError('OTHER_WINDOW_BUSY');
         const marker = { v: 2, id: S.operation.id, at: S.operation.at, action, phase: 'pending' };
@@ -240,7 +245,12 @@
             if (existing) { S.marker=existing;S.uncertain=true;toast(ERROR_TEXT.OTHER_WINDOW_BUSY,true);return; }
             try { await work(); }
             catch(e) {
-                if(e.uncertain) { markUncertain(); invalidatePreview('上次写入结果未确认，请先核对。'); }
+                if(e.uncertain && !EPHEMERAL_ACTIONS.has(action)) {
+                    markUncertain(); invalidatePreview('上次写入结果未确认，请先核对。');
+                } else if(e.uncertain) {
+                    invalidatePreview('预览或静态校验未确认，当前运行配置未改变；请重新生成预览。');
+                    e.message='预览或静态校验未确认，当前运行配置未改变；请重新生成预览。';
+                }
                 if(['EXTENSION_CAS_CONFLICT','EXTENSION_CHANGED'].includes(e.code)) { S.conflict=true; renderExtensions(); }
                 if(['SOURCE_CHANGED','PREVIEW_CONFLICT','OLD_SOURCE'].includes(e.code)) invalidatePreview(e.message);
                 toast(e.message||ERROR_TEXT.REQUEST_FAILED,true);
@@ -369,7 +379,8 @@
         root.className = '';
         root.replaceChildren();
         const metrics = el('div', null, 'preview-summary');
-        const count = (p.differences?.daed?.changeCount || 0) + (p.differences?.daeExtensions?.changeCount || 0);
+        const diffAvailable = p.differences?.available !== false;
+        const count = diffAvailable ? (p.differences?.daed?.changeCount || 0) + (p.differences?.daeExtensions?.changeCount || 0) : '未比较';
         for (const [val, label] of [[p.nodeCount, '节点'], [p.groupCount, '分组'], [count, '处差异']]) {
             const d = el('div');
             d.append(el('strong', val ?? '—'), el('small', label));
@@ -377,7 +388,8 @@
         }
         root.append(metrics);
         const baseline = { "last-applied": '上次应用的配置', "previous-preview": '上次预览（不是运行配置）', empty: '空基线（不是运行配置）' }[p.differences?.baseline] || '后端提供的基线';
-        root.append(el('p', '比较基线：' + baseline, 'fine-print'));
+        root.append(el('p', diffAvailable ? '比较基线：' + baseline :
+            '旧比较记录不可用，本次不显示差异数量；新预览有效，尚未改变运行配置。', 'fine-print'));
         for (const [key, title] of [['daed', '官方配置'], ['daeExtensions', 'DAE 扩展']]) {
             const diff = p.differences?.[key];
             if (!diff)

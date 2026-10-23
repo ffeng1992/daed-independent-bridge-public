@@ -17,7 +17,8 @@ def collect(reader, *, page_size=50, attempts=3, budget=60):
         require(set(caps)=={'__type'} and isinstance(caps['__type'],dict) and set(caps['__type'])=={'fields'}, 'SCHEMA_DRIFT')
         fields=caps['__type']['fields']
         require(isinstance(fields,list) and all(isinstance(f,dict) and set(f)=={'name'} for f in fields), 'SCHEMA_DRIFT')
-        require(len(fields)==len(EXPECTED_GLOBAL) and {f['name'] for f in fields}==EXPECTED_GLOBAL, 'SCHEMA_DRIFT')
+        from .capability_contract import verify as verify_capabilities
+        verify_capabilities(fields, EXPECTED_GLOBAL)
         data=request('SnapshotMetadata',{})
         require(set(data)=={'configs','dnss','routings','groups','subscriptions'}, 'SCHEMA_DRIFT')
         for kind,items in data.items():unique(items,kind)

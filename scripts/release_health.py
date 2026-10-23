@@ -70,15 +70,28 @@ def check(*,require_dataplane=True):
         return
     need(status.get('state')=='running' and status.get('identityVerified') is True,'DAE_IDENTITY')
     need(status.get('configSha256')==expected,'CONFIG_HASH')
-    backends=Backends().states()
-    decision=decide(status,expected,backends)
-    need(decision['consistent'] and backends=={'DAE':'UP','DIRECT':'DOWN'},'DNS_SYNC_STATE')
-    config=json.loads((CFG/'health.json').read_text())
+    from bridge_m4.deployment_profile import load as load_layout, native, policy_dns_active
+    native_layout=native(load_layout())
+    if native_layout:
+        policy_dns_active()  # Refuse an undeclared live/boot-enabled old consumer.
+    else:
+        backends=Backends().states()
+        decision=decide(status,expected,backends)
+        need(decision['consistent'] and backends=={'DAE':'UP','DIRECT':'DOWN'},'DNS_SYNC_STATE')
+    if native_layout and not (CFG/'health.json').exists():
+        from bridge_m4.native_dns_health import address as native_address
+        config={'lanAddress':native_address(status),'dnsName':'www.baidu.com'}
+    else:
+        config=json.loads((CFG/'health.json').read_text())
     need(set(config)=={'lanAddress','dnsName'},'HEALTH_CONFIG_SCHEMA')
     address=str(ipaddress.IPv4Address(config['lanAddress']))
     name=config['dnsName']
     need(type(name) is str and 0<len(name)<=253 and all(c.isalnum() or c in '.-' for c in name),'DNS_NAME')
-    for server,port in ((address,53),('127.0.0.1',5353)):
+    if native_layout:
+        from bridge_m4.native_dns_health import check as check_native_listener
+        check_native_listener(status,address)
+    servers=((address,53),) if native_layout else ((address,53),('127.0.0.1',5353))
+    for server,port in servers:
         for tcp in (False,True): dns(server,port,name,tcp)
     web=web_status(json.loads((CFG/'web.json').read_text()),(CFG/'bridge-login.token').read_text().strip())
     for field in ('state','identityVerified','activeBundle','configSha256','MainPID','InvocationID'):
@@ -88,5 +101,6 @@ def check(*,require_dataplane=True):
     dashboard=check_dashboard()
     # Do not print any token, node, config contents, cookie or source snapshot.
     print(json.dumps({'passed':True,'daedApiOnly':True,'bridge':True,'dae':True,
-                      'DNS':'UDP_TCP_PASS','DAE':'UP','DIRECT':'DOWN','consistent':True,
+                      'DNS':'UDP_TCP_PASS','dnsOwnership':'native-dae' if native_layout else 'policy-dns',
+                      **({} if native_layout else {'DAE':'UP','DIRECT':'DOWN','consistent':True}),
                       'webIdentityMatches':True,'onlyIndependentDAE':True,**dashboard}))

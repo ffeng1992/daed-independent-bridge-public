@@ -1,4 +1,6 @@
+from integration.ui_matrix.completion import read as read_completion
 """Subscription link/tag/cron/filter continuation using a loopback fixture."""
+from integration.ui_matrix.evidence_scope import scope_file
 import json
 import threading
 import time
@@ -11,8 +13,8 @@ from scripts.release_setup import need
 
 
 def main():
-    need(Path('/evidence/nodes-complete').is_file(), 'PREVIOUS_BATCH_INCOMPLETE')
-    path = Path('/evidence/subscription-continuation.json')
+    need(bool(read_completion('nodes-complete')), 'PREVIOUS_BATCH_INCOMPLETE')
+    path = scope_file(Path('/evidence/subscription-continuation.json'))
     need(not path.exists(), 'EXISTING_SUBSCRIPTION_EVIDENCE_DO_NOT_RERUN')
     matrix = Matrix()
     requests = []

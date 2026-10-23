@@ -69,10 +69,12 @@ def config_check():
         need(Path('/var/lib/daed-independent-bridge/current').is_symlink(), 'VERIFIED_INITIAL_BUNDLE_REQUIRED')
 
 
-def packages():
+def packages(native_dns=False):
     import importlib.util
-    if all(shutil.which(x) for x in ('dnsdist','dig','openssl','ip','nginx')) and importlib.util.find_spec('pip'):
+    required=('dig','openssl','ip','nginx') if native_dns else ('dnsdist','dig','openssl','ip','nginx')
+    if all(shutil.which(x) for x in required) and importlib.util.find_spec('pip'):
         return
+    need(not native_dns,'NATIVE_PREREQUISITES_REQUIRED_NO_AUTOMATIC_PACKAGE_CHANGES')
     nginx_before = subprocess.run(['dpkg-query','-W','-f=${Status}','nginx'],capture_output=True).returncode==0
     before = subprocess.run(['dpkg-query', '-W', '-f=${Status}', 'dnsdist'], capture_output=True).returncode == 0
     run(['apt-get', 'update', '-qq'])
@@ -92,12 +94,12 @@ def inactive_unit(name, output):
          'UNMANAGED_ACTIVE_SERVICE:' + name)
 
 
-def ready_payload():
+def ready_payload(native_dns=False):
     from scripts.m4_install import payload
     # Downloads are separately hash-verified; no service is stopped before this.
     from scripts.release_prepare import prepare
     prepare(ROOT)
-    return payload(release_profile=True)
+    return payload(release_profile=True,native_dns=True) if native_dns else payload(release_profile=True)
 
 
 def health():
@@ -159,6 +161,10 @@ def connect_daed():
 
 
 def authorize_daed(token):
+    from bridge_m4.deployment_profile import native
+    if native():
+        from scripts.release_native_lifecycle import authorize
+        return authorize(token)
     from scripts.release_setup import connect,apply_initial
     connect(token)
     ctl('restart','bridge-attestor.service')
@@ -220,6 +226,14 @@ def purge():
 
 
 def execute(action, args):
+    from bridge_m4.deployment_profile import load as load_layout, native
+    layout=load_layout()
+    requested=getattr(args,'dns_ownership',None)
+    if requested is not None and layout is not None:
+        need(requested==layout['dnsOwnership'],'DNS_OWNERSHIP_CONVERSION_NOT_AUTHORIZED')
+    if action != 'health-check' and (native(layout) or requested=='native-dae' or getattr(args,'recover_native',False)):
+        from scripts.release_native_lifecycle import execute as native_execute
+        return native_execute(action,args)
     if action == 'health-check':
         health_complete()
         return
@@ -294,8 +308,10 @@ def main(argv=None):
     p.add_argument('action', choices=('install', 'upgrade', 'uninstall', 'health-check'))
     p.add_argument('--connect-daed',action='store_true',help='After official Web setup: authorize collection and validate/apply selected configuration')
     p.add_argument('--settings', help='First-install network settings JSON (no credentials)')
+    p.add_argument('--dns-ownership', choices=('native-dae','bridge-managed'), help='Explicit first-install DNS ownership; never converts an existing layout')
     p.add_argument('--purge', action='store_true', help='Delete fixed project-owned persistent data')
     p.add_argument('--confirm-purge', choices=('DELETE-INDEPENDENT-BRIDGE',))
+    p.add_argument('--recover-native',action='store_true',help='Explicit recovery of an interrupted native lifecycle; never an automatic retry')
     args = p.parse_args(argv)
     need(args.action == 'uninstall' or not (args.purge or args.confirm_purge), 'UNINSTALL_OPTION_ONLY')
     need(not args.connect_daed or args.action=='install','INSTALL_CONNECTION_OPTION_ONLY')

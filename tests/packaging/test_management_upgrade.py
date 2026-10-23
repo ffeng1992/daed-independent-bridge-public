@@ -1,151 +1,56 @@
-"""Fixed-scope checks for the v0.3.1 management-only update."""
-import hashlib
-import json
+"""Management-only packaging preserves data-plane/DNS ownership."""
 import unittest
 from unittest.mock import patch
-
-from scripts.release_management_upgrade import (BOUNDED, EXTERNAL_DNS_UNITS,
-    PRESERVED, WEB_UNIT, management_payload, plan, start_management,
-    stop_management, verify_external_dns, verify_installed_dns)
-
+from scripts import release_management_plan as planner
+from scripts import management_payload
 
 class ManagementUpgradePlanTests(unittest.TestCase):
-    def setUp(self):
-        self.files = {}
-        self.previous = {}
-        for path, pin in BOUNDED['files'].items():
-            self.files[path] = (b'candidate:' + path.encode(), 0o644)
-            if pin is not None:
-                self.previous[path] = {'sha256': pin, 'mode': 0o644}
-        self.unmodified = '/opt/bridge-official/dae'
-        body = b'official-pinned'
-        self.files[self.unmodified] = (body, 0o555)
-        self.previous[self.unmodified] = {'sha256': hashlib.sha256(body).hexdigest(), 'mode': 0o555}
+    def test_dns_and_official_units_outside_write_scope(self):
+        for name in ('/etc/systemd/system/dae.service','bridge-lan-dns.service','/opt/bridge-official/dae'):
+            self.assertFalse(management_payload.eligible(name))
+    def test_api_and_dae_not_stopped_by_management_plan(self):
+        self.assertNotIn('daed-api.service',planner.MANAGEMENT)
+        self.assertNotIn('dae.service',planner.MANAGEMENT)
+        self.assertLess(planner.MANAGEMENT.index('bridge-graphql.service'),planner.MANAGEMENT.index('daed-web.service'))
+    def test_dependencies_checked_without_install(self):
+        with patch('importlib.import_module',side_effect=ImportError):
+            with self.assertRaisesRegex(RuntimeError,'PACKAGE_DEPENDENCY_MISSING'):
+                management_payload.dependencies()
+    def test_healthy_services_restore_only_original_active(self):
+        before={n:{'ActiveState':'inactive'} for n in (*planner.MANAGEMENT,*planner.TIMERS)}
+        before['bridge-graphql.service']['ActiveState']='active'
+        with patch.object(planner,'control') as control,patch.object(planner,'unit',return_value={'ActiveState':'active'}):
+            planner._restore_states(before)
+        self.assertEqual([c.args for c in control.call_args_list],[('start','bridge-graphql.service')])
 
-    def test_exact_management_diff(self):
-        desired, changed = plan({'files': self.previous}, self.files)
-        self.assertEqual(changed, set(BOUNDED['files']))
-        self.assertEqual(desired[self.unmodified], self.previous[self.unmodified])
+    def test_native_dns_does_not_require_legacy_release_or_dns_units(self):
+        from types import SimpleNamespace
+        from bridge_m4.deployment_profile import POLICY_UNITS
+        absent={'LoadState':'not-found','ActiveState':'inactive','MainPID':'0','ControlPID':'0','UnitFileState':''}
+        output='\n'.join(k+'='+v for k,v in absent.items())
+        def control(*args):
+            value=absent if not args[1].endswith('.timer') else {k:v for k,v in absent.items() if k not in {'MainPID','ControlPID'}}
+            return SimpleNamespace(stdout='\n'.join(k+'='+v for k,v in value.items()))
+        with patch('bridge_m4.deployment_profile.load',return_value=None),patch('bridge_m4.dns_sync_runtime.read_status',return_value=({'state':'running','configSha256':'x'},'x')),patch('bridge_m4.native_dns_health.address',return_value='192.0.2.1'),patch('bridge_m4.deployment_profile.show',return_value=absent),patch.object(planner,'control',side_effect=control):
+            result=planner.deployment()
+        self.assertEqual(result['dnsOwnership'],'native-dae')
+        self.assertEqual(result['policyDnsUnits'],[])
+    def test_native_dns_refuses_live_retired_unit(self):
+        from types import SimpleNamespace
+        absent={'LoadState':'not-found','ActiveState':'inactive','MainPID':'0','ControlPID':'0','UnitFileState':''}
+        output='LoadState=loaded\nActiveState=active\nMainPID=123\nControlPID=0\nUnitFileState=enabled'
+        with patch('bridge_m4.deployment_profile.load',return_value=None),patch('bridge_m4.dns_sync_runtime.read_status',return_value=({'state':'running','configSha256':'x'},'x')),patch('bridge_m4.native_dns_health.address',return_value='192.0.2.1'),patch('bridge_m4.deployment_profile.show',return_value=absent),patch.object(planner,'control',return_value=SimpleNamespace(stdout=output)):
+            with self.assertRaisesRegex(RuntimeError,'UPGRADE_RETIRED_DNS_ACTIVE'):
+                planner.deployment()
 
-    def test_baseline_hash_change_rejected(self):
-        old = json.loads(json.dumps(self.previous))
-        path = next(p for p, pin in BOUNDED['files'].items() if pin is not None)
-        old[path]['sha256'] = '0' * 64
-        with self.assertRaisesRegex(RuntimeError, 'MANAGEMENT_BASELINE_MISMATCH'):
-            plan({'files': old}, self.files)
-
-    def test_official_or_dns_change_rejected(self):
-        files = dict(self.files)
-        files[self.unmodified] = (b'changed-official', 0o555)
-        with self.assertRaisesRegex(RuntimeError, 'MANAGEMENT_SCOPE_CHANGED'):
-            plan({'files': self.previous}, files)
-
-    def test_unexpected_file_and_missing_contract_rejected(self):
-        files = dict(self.files)
-        files['/etc/systemd/system/dae.service'] = (b'changed-unit', 0o644)
-        with self.assertRaisesRegex(RuntimeError, 'MANAGEMENT_FILE_SET'):
-            plan({'files': self.previous}, files)
-        files = dict(self.files)
-        del files['/opt/bridge/contracts/m4/extension-record-v1.json']
-        with self.assertRaisesRegex(RuntimeError, 'MANAGEMENT_FILE_SET'):
-            plan({'files': self.previous}, files)
-
-    def test_wrong_permissions_rejected(self):
-        files = dict(self.files)
-        path = '/opt/bridge/bridge_m4/upstream_contracts.py'
-        files[path] = (files[path][0], 0o666)
-        with self.assertRaisesRegex(RuntimeError, 'MANAGEMENT_CANDIDATE_MISSING'):
-            plan({'files': self.previous}, files)
-
-    def test_clean_install_uses_packaged_dns_check(self):
-        with patch('scripts.release_health.check') as packaged, patch(
-                'scripts.release_management_upgrade.verify_external_dns') as inherited:
-            verify_installed_dns({'files': {'/etc/systemd/system/bridge-lan-dns.service': {}}})
-        packaged.assert_called_once_with()
-        inherited.assert_not_called()
-
-    def test_existing_production_uses_inherited_dns_check(self):
-        with patch('scripts.release_health.check') as packaged, patch(
-                'scripts.release_management_upgrade.verify_external_dns') as inherited:
-            verify_installed_dns({'files': {}})
-        inherited.assert_called_once_with()
-        packaged.assert_not_called()
-
-    def test_existing_dns_reads_real_backend_and_four_protocol_paths(self):
-        status={'state':'running','identityVerified':True,'configSha256':'abc'}
-        with patch('bridge_m4.dns_sync_runtime.read_status',return_value=(status,'abc')), patch(
-                'bridge_m4.dns_sync_runtime.Backends') as backends, patch(
-                'bridge_m4.dns_sync.decide',return_value={'consistent':True}), patch(
-                'pathlib.Path.read_text',return_value='setLocal("192.0.2.1:53")\n'), patch(
-                'scripts.release_health.dns') as query:
-            backends.return_value.states.return_value={'DAE':'UP','DIRECT':'DOWN'}
-            verify_external_dns()
-        self.assertEqual([call.args[:3] for call in query.call_args_list],
-                         [('192.0.2.1',53,'www.baidu.com')]*2+
-                         [('127.0.0.1',5353,'www.baidu.com')]*2)
-        self.assertEqual([call.args[3] for call in query.call_args_list],
-                         [False,True,False,True])
-
-    def test_existing_dns_refuses_ambiguous_listener(self):
-        status={'state':'running','identityVerified':True,'configSha256':'abc'}
-        with patch('bridge_m4.dns_sync_runtime.read_status',return_value=(status,'abc')), patch(
-                'bridge_m4.dns_sync_runtime.Backends') as backends, patch(
-                'bridge_m4.dns_sync.decide',return_value={'consistent':True}), patch(
-                'pathlib.Path.read_text',return_value='setLocal("0.0.0.0:53")\naddLocal("192.0.2.1:53")\n'):
-            backends.return_value.states.return_value={'DAE':'UP','DIRECT':'DOWN'}
-            # Broad listeners do not identify the existing LAN endpoint.
-            with self.assertRaisesRegex(RuntimeError,'DNS_LISTENER_IDENTITY'):
-                verify_external_dns()
-
-    def test_dashboard_follows_graphql_management_restart(self):
-        self.assertNotIn(WEB_UNIT, PRESERVED)
-        with patch('scripts.release_management_upgrade.ctl') as ctl, patch(
-                'scripts.release_management_upgrade.show', return_value={'ActiveState':'inactive'}), patch(
-                'scripts.release_management_upgrade.verify_management') as ready, patch(
-                'scripts.release_management_upgrade.wait_sync_idle') as idle:
-            stop_management()
-            start_management()
-        calls=[call.args for call in ctl.call_args_list]
-        self.assertIn(('stop',WEB_UNIT),calls)
-        self.assertIn(('start',WEB_UNIT),calls)
-        self.assertLess(calls.index(('stop',WEB_UNIT)),
-                        next(i for i,c in enumerate(calls) if c[0]=='stop' and 'bridge-graphql.service' in c))
-        self.assertGreater(calls.index(('start',WEB_UNIT)),
-                           next(i for i,c in enumerate(calls) if c[0]=='start' and 'bridge-graphql.service' in c))
-        ready.assert_called_once_with()
-        idle.assert_called_once_with()
-        self.assertGreater(calls.index(('start',*('independent-dns-sync.timer',
-                         'independent-policy-sync.timer'))),calls.index(('start',WEB_UNIT)))
-
-    def test_external_dns_units_stay_out_of_management_manifest(self):
-        full=dict(self.files)
-        full.update({name:(b'external-dns',0o644) for name in EXTERNAL_DNS_UNITS})
-        with patch('scripts.release_lifecycle.ready_payload',return_value=full):
-            selected=management_payload({'files':self.previous})
-        desired,changed=plan({'files':self.previous},selected)
-        self.assertEqual(changed,set(BOUNDED['files']))
-        self.assertEqual(set(desired),set(self.previous)|{n for n,p in BOUNDED['files'].items() if p is None})
-        self.assertFalse(set(desired)&EXTERNAL_DNS_UNITS)
-
-    def test_existing_dns_unit_remains_owned_and_unchanged(self):
-        name=next(iter(sorted(EXTERNAL_DNS_UNITS)))
-        full=dict(self.files)
-        full.update({unit:(b'dns-original',0o644) for unit in EXTERNAL_DNS_UNITS})
-        old=dict(self.previous);old[name]={'sha256':hashlib.sha256(b'dns-original').hexdigest(),'mode':0o644}
-        with patch('scripts.release_lifecycle.ready_payload',return_value=full):
-            selected=management_payload({'files':old})
-        desired,_=plan({'files':old},selected)
-        self.assertEqual(desired[name],old[name])
-        full[name]=(b'dns-changed',0o644)
-        with patch('scripts.release_lifecycle.ready_payload',return_value=full):
-            selected=management_payload({'files':old})
-        with self.assertRaisesRegex(RuntimeError,'MANAGEMENT_SCOPE_CHANGED'):
-            plan({'files':old},selected)
-
-    def test_unexpected_extra_file_still_fails_before_service_stop(self):
-        full=dict(self.files)
-        full.update({name:(b'external-dns',0o644) for name in EXTERNAL_DNS_UNITS})
-        full['/etc/systemd/system/unexpected.service']=(b'unexpected',0o644)
-        with patch('scripts.release_lifecycle.ready_payload',return_value=full):
-            with self.assertRaisesRegex(RuntimeError,'MANAGEMENT_FILE_SET'):
-                management_payload({'files':self.previous})
+    def test_unknown_or_invalid_sealed_extension_refused(self):
+        from types import SimpleNamespace
+        for code,version in ((0,'3'),(1,'1')):
+            with patch.object(planner.subprocess,'run',return_value=SimpleNamespace(returncode=code,stdout=version)):
+                with self.assertRaisesRegex(RuntimeError,'UNSUPPORTED_EXTENSION_STATE'):
+                    planner.validate_extensions('/opt/release')
+    def test_existing_sealed_extension_formats_accepted(self):
+        from types import SimpleNamespace
+        for version in ('1','2'):
+            with patch.object(planner.subprocess,'run',return_value=SimpleNamespace(returncode=0,stdout=version)):
+                planner.validate_extensions('/opt/release')

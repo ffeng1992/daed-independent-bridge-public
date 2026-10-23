@@ -1,4 +1,6 @@
+from integration.ui_matrix.completion import read as read_completion
 """Bounded LAN path and group witnesses; only the existing synthetic VM."""
+from integration.ui_matrix.evidence_scope import scope_file
 import json
 import subprocess
 import time
@@ -21,12 +23,12 @@ def events():
 class Paths(Matrix):
     def __init__(self):
         super().__init__()
-        self.path = Path('/evidence/path-continuation.json')
+        self.path = scope_file(Path('/evidence/path-continuation.json'))
         self.results = []
         self.nodes = []
         self.group = self.config = self.routing = None
         self.original_routing = next(r for r in self.source['metadata']['routings'] if r['selected'])
-        resume = Path('/evidence/path-completed-cases.json')
+        resume = scope_file(Path('/evidence/path-completed-cases.json'))
         if resume.exists():
             previous = json.loads(resume.read_text())
             need(previous['source'] == self.source, 'RESUME_SOURCE_BASELINE_CHANGED')
@@ -197,13 +199,13 @@ class Paths(Matrix):
 
 
 def main(repair=False, udp_health_only=False, long_sniff_only=False):
-    need(Path('/evidence/nodes-complete').is_file(), 'PREVIOUS_BATCH_INCOMPLETE')
-    need(Path('/evidence/path-fixture-ready').is_file(), 'PATH_FIXTURE_NOT_READY')
-    output = Path('/evidence/long-sniff-witness.json' if long_sniff_only else '/evidence/udp-health-witness.json' if udp_health_only else '/evidence/path-witness-repair.json' if repair else '/evidence/path-continuation.json')
+    need(bool(read_completion('nodes-complete')), 'PREVIOUS_BATCH_INCOMPLETE')
+    need(scope_file(Path('/evidence/path-fixture-ready')).is_file(), 'PATH_FIXTURE_NOT_READY')
+    output = scope_file(Path('/evidence/long-sniff-witness.json' if long_sniff_only else '/evidence/udp-health-witness.json' if udp_health_only else '/evidence/path-witness-repair.json' if repair else '/evidence/path-continuation.json'))
     need(not output.exists(), 'EXISTING_PATH_EVIDENCE_DO_NOT_RERUN')
     matrix = Paths()
     if long_sniff_only:
-        prior = json.loads(Path('/evidence/path-continuation.json').read_text())
+        prior = json.loads(scope_file(Path('/evidence/path-continuation.json')).read_text())
         original = next(r for r in prior if r['id'] == 'global.dial-sniff.long-sniff')
         need(original.get('reason') == 'DIAL_CONFIG_CHANGED' and original.get('baselineRestored'),
              'LONG_SNIFF_NOT_AN_INCOMPLETE_DURATION_FIXTURE')
@@ -216,7 +218,7 @@ def main(repair=False, udp_health_only=False, long_sniff_only=False):
             matrix.restore()
         return
     if udp_health_only:
-        prior = json.loads(Path('/evidence/path-continuation.json').read_text())
+        prior = json.loads(scope_file(Path('/evidence/path-continuation.json')).read_text())
         need(all(row.get('baselineRestored') is True for row in prior), 'PREVIOUS_BASELINE_NOT_RESTORED')
         need(any(row.get('reason') == 'ACTUAL_UDP_HEALTH_PROBE_MISSING' for row in prior), 'UDP_WITNESS_NOT_INCOMPLETE')
         matrix.results = []; matrix.path = output
@@ -228,7 +230,7 @@ def main(repair=False, udp_health_only=False, long_sniff_only=False):
             matrix.restore()
         return
     if repair:
-        prior = json.loads(Path('/evidence/path-continuation.json').read_text())
+        prior = json.loads(scope_file(Path('/evidence/path-continuation.json')).read_text())
         need(all(row.get('baselineRestored') is True for row in prior), 'PREVIOUS_BASELINE_NOT_RESTORED')
         pending = {row['id'] for row in prior if row['result'] == 'FAIL' and
                    ((row['id'].startswith('global.dial-sniff.') and row.get('reason') == 'DIAL_REQUEST_FAILED') or

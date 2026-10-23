@@ -13,6 +13,7 @@ from bridge_m2.submit import submit
 from .collect import collect
 from .store import ExtensionStore
 from .runtime_bundle import artifacts, fingerprints, stage
+from .advisory import preview_differences, already_current
 
 CLIENT=Path('/var/lib/bridge-m4-client')
 EXTENSIONS=CLIENT/'extensions'
@@ -48,24 +49,7 @@ class Runtime:
                 from bridge_m2.security import read_set
                 check(read_set(candidate,os.geteuid(),os.getegid(),set(payload))==payload,'PREVIEW_CONFLICT')
             previous=self.pending
-            baseline=previous['directory'] if previous else None
-            last=self.root/'last-applied.json'
-            if last.exists():
-                fd=directory(self.root,os.geteuid(),os.getegid())
-                try:saved=json.loads(read_at(fd,'last-applied.json',os.geteuid(),os.getegid()))
-                finally:os.close(fd)
-                preview_id=saved['previewId']
-                check(type(preview_id) is str and len(preview_id)==64 and all(c in '0123456789abcdef' for c in preview_id),'PREVIEW_CONFLICT')
-                baseline=parent/preview_id
-            before_source={};before_extensions={}
-            if baseline is not None:
-                fd=directory(baseline,os.geteuid(),os.getegid())
-                try:
-                    before_source=json.loads(read_at(fd,'source-snapshot.json',os.geteuid(),os.getegid()))
-                    before_extensions=json.loads(read_at(fd,'normalized-ir.json',os.geteuid(),os.getegid()))['extensions']
-                finally:os.close(fd)
-            from .preview_diff import summary
-            differences={'daed':summary(before_source,source),'daeExtensions':summary(before_extensions,extensions),'baseline':'last-applied' if last.exists() else 'previous-preview' if previous else 'empty'}
+            differences=preview_differences(self.root,previous,source,extensions)
             pins=fingerprints(source,extensions)
             self.pending={'id':identity,'generation':generation,'directory':candidate,'pins':pins,'validated':False}
             # No raw node links or complete configuration in browser summaries.
@@ -89,26 +73,29 @@ class Runtime:
             source,_,extensions,generation=self.snapshot(token)
             check(generation==pending['generation'] and fingerprints(source,extensions)==pending['pins'],'SOURCE_CHANGED')
             status=self.status();check('error' not in status and status.get('state')!='rollback-needed','STATUS_REJECTED')
-            last_path=self.root/'last-applied.json'
-            if last_path.exists():
-                fd=directory(self.root,os.geteuid(),os.getegid())
-                try:last=json.loads(read_at(fd,'last-applied.json',os.geteuid(),os.getegid()))
-                finally:os.close(fd)
-                if last.get('previewId')==identity and last.get('bundleId')==status['activeBundle']:
-                    result=self.submit('apply',last['bundleId'])
-                    return {'bundleId':last['bundleId'],'result':result,'status':self.status(last['bundleId'])}
+            if already_current(status,pending):
+                bundle=status['activeBundle']
+                result=self.submit('apply',bundle)
+                return {'bundleId':bundle,'result':result,'status':self.status(bundle)}
             fd=directory(PUBLIC,0,os.getegid(),0o750)
             try:trusted=json.loads(read_at(fd,'receipt.json',0,os.getegid(),0o640))
             finally:os.close(fd)
             bundle=stage(pending['directory'],trusted,status['activeBundle'])
             result=self.submit('apply',bundle)
+            warning=None
             if result.get('result') in {'APPLIED','ALREADY_APPLIED'}:
-                atomic_json(self.root/'last-applied.json',{'previewId':identity,'bundleId':bundle})
-            # The helper independently validates again before its atomic publication.
-            return {'bundleId':bundle,'result':result,'status':self.status(bundle)}
+                try:
+                    atomic_json(self.root/'last-applied.json',{'previewId':identity,'bundleId':bundle})
+                except OSError:
+                    warning='HISTORY_SAVE_UNAVAILABLE'
+            # Current helper status, not a disposable display receipt, is authority.
+            return {'bundleId':bundle,'result':result,'status':self.status(bundle),
+                    'historyWarning':warning}
     def extensions(self):
         generation,value=self.store.load()
-        return {'generation':generation,'records':{section:{ident:record['fields'] for ident,record in records.items()} for section,records in value['extensions']['records'].items()}}
+        from .extension_contracts import projected_fields
+        from .upstream_contracts import CONFIG, LEGACY_RECORD
+        return {'generation':generation,'records':{section:{ident:projected_fields(record,CONFIG,LEGACY_RECORD) for ident,record in records.items()} for section,records in value['extensions']['records'].items()}}
     def bind_extensions(self,token):
         with self.lock:
             generation,_=self.store.load()

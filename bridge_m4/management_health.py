@@ -31,11 +31,13 @@ def _read_json(path, limit=1024 * 1024):
 
 
 def _state():
-    if not STATE.exists():
-        return {'schemaVersion': 1, 'services': {}, 'history': []}
-    value = _read_json(STATE)
-    check(value.get('schemaVersion') == 1 and type(value.get('services')) is dict
-          and type(value.get('history', [])) is list, 'MANAGEMENT_HEALTH_STATE')
+    from .advisory import optional_json
+    value, warning = optional_json(STATE)
+    if (value is None or type(value.get('schemaVersion')) is not int or
+            value['schemaVersion'] != 1 or type(value.get('services')) is not dict or
+            type(value.get('history', [])) is not list):
+        return {'schemaVersion': 1, 'services': {}, 'history': [],
+                'historyWarning': warning or ('HISTORY_SCHEMA' if value is not None else None)}
     return value
 
 
@@ -77,9 +79,11 @@ def status(*, now=None):
     attention = False
     for service, (title, impact) in COMPONENTS.items():
         record = state['services'].get(service, {})
+        if type(record) is not dict: record = {}
         healthy = record.get('healthy') is True and fresh
-        failures = int(record.get('consecutiveFailures', 0) or 0)
-        needs_attention = failures >= 2 or record.get('lastRecoverySucceeded') is False
+        failures = record.get('consecutiveFailures', 0)
+        if type(failures) is not int or failures < 0: failures = 0
+        needs_attention = not healthy and (failures >= 2 or record.get('lastRecoverySucceeded') is False)
         attention = attention or needs_attention or not healthy
         components.append({
             'service': service,
@@ -131,6 +135,7 @@ def status(*, now=None):
         'lastCheckAt': completed,
         'lastCheckFresh': fresh,
         'lastCheckResult': state.get('lastCheckResult', 'NOT_RUN'),
+        'historyWarning': state.get('historyWarning'),
         'lastRecovery': recovery,
         'needsAttention': overall in {'UNKNOWN', 'ATTENTION_REQUIRED'},
         'notification': {

@@ -53,7 +53,10 @@ class PinnedAdapterTests(unittest.TestCase):
         with self.assertRaisesRegex(CompatibilityError, 'EXTENSION_CONTRACT_CONVERSION_REQUIRED'):
             convert_record(old, 'global', {}, contract=evolved)
         converted = convert_record(old, 'global', {'future_feature': 'new-field-absent'}, contract=evolved)
-        self.assertEqual(converted['schemaVersion'], 2)
+        self.assertEqual(converted['schemaVersion'], 3)
+        from bridge_m4.extension_contracts import section_identity
+        self.assertEqual(converted['sectionContractSha256'], section_identity(evolved, 'global'))
+        self.assertNotIn('contractSha256', converted)
         self.assertEqual(converted['fields']['future_feature'], {'present': False})
         self.assertEqual(converted['fields']['disable_thp'], {'present': True, 'value': False})
         self.assertEqual(validate_record(converted, 'global', contract=evolved), view)

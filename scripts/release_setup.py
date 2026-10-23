@@ -84,7 +84,7 @@ def client(code,value):
     return json.loads(p.stdout) if p.stdout else None
 
 
-def configure(value):
+def configure(value,native_dns=False):
     gid=pwd.getpwnam('independent-bridge').pw_gid
     write(CFG/'release.json',json.dumps(value).encode())
     write(CFG/'health.json',json.dumps({k:value[k] for k in ('lanAddress','dnsName')}).encode())
@@ -95,6 +95,10 @@ def configure(value):
                     '-keyout',str(CFG/'tls.key'),'-out',str(CFG/'tls.crt')],check=True,capture_output=True)
     for name in ('tls.key','tls.crt'):
         (CFG/name).chmod(0o640);os.chown(CFG/name,0,gid)
+    if native_dns:
+        from scripts.release_native_lifecycle import NATIVE
+        write(CFG/'layout.json',(json.dumps(NATIVE,sort_keys=True)+'\n').encode(),0o644)
+        return  # No retired DNS configs, control key or dnsdist group required.
     key=base64.b64encode(secrets.token_bytes(32)).decode()
     upstream=value['upstream']
     lan='''setLocal(%s)

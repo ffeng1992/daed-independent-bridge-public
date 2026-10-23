@@ -1,8 +1,10 @@
+from integration.ui_matrix.completion import read as read_completion
 """Synthetic official-API node field evidence, in the existing disposable VM.
 
 URI fixtures follow the pinned original form generators. This is API evidence,
 not a claim of browser clicks or successful remote-protocol handshakes.
 """
+from integration.ui_matrix.evidence_scope import scope_file
 import base64
 import json
 from pathlib import Path
@@ -58,10 +60,73 @@ def cases():
     return values
 
 
+def config_classification(case):
+    """Called only after the real API/readback/validate/apply chain passed.
+
+    URI preservation is CONFIG_PASS, never a remote-protocol runtime claim.
+    Known ignored fields retain their existing pinned source findings.
+    """
+    ignored = case['sourceIgnored']
+    if not ignored:
+        return {'result':'CONFIG_PASS', 'runtimeEvidence':'NOT_CLAIMED_CONFIG_CHAIN_ONLY'}
+    import hashlib
+    doc = Path(__file__).resolve().parents[2]/'docs/WEB-FIELD-MATRIX.md'
+    body = doc.read_bytes(); text = body.decode()
+    sections = []; owners = set()
+    for field in ignored:
+        heading = '### node.'+field+'\n'
+        need(heading in text, 'PINNED_IGNORED_FIELD_EVIDENCE_MISSING')
+        section = text.split(heading,1)[1].split('\n### ',1)[0]
+        owner = next((o for o in ('official DAE','official daed')
+                      if section.lstrip().startswith('Owner: '+o+'. Locked version:')), None)
+        need(owner is not None and 'Source evidence:' in section
+             and ('https://github.com/' in section or
+                  ('official wing `dc503088945812c11235b35362d2bfa1a4c3bdf0`' in section
+                   and '`db/node_utils.go`' in section)), 'PINNED_IGNORED_FIELD_EVIDENCE_INVALID')
+        owners.add(owner)
+        sections.append({'field':field,'section':heading.strip(),
+            'owner':owner,'sectionSha256':hashlib.sha256(section.encode()).hexdigest()})
+    need(len(owners)==1, 'PINNED_IGNORED_FIELD_MIXED_OWNERS')
+    return {'result':'FAIL','owner':next(iter(owners)),
+        'reason':'PINNED_TARGET_PARSER_IGNORES_VISIBLE_FIELD','failedFields':ignored,
+        'runtimeEvidence':'NOT_CLAIMED_PINNED_SOURCE_FINDING',
+        'sourceEvidence':{'file':'docs/WEB-FIELD-MATRIX.md',
+            'sha256':hashlib.sha256(body).hexdigest(),'sections':sections}}
+
+
+def import_rejection_classification(case, stage, exc):
+    """Classify only the witnessed pinned xhttp import rejection; retain FAIL."""
+    expected = 'GRAPHQL_REJECTED:["create vle[REDACTED_URI] unexpected field: network: xhttp"]'
+    if (case != next(c for c in cases() if c['id'] == 'vless-xhttp')
+            or stage != 'import' or type(exc) is not RuntimeError
+            or str(exc) != expected):
+        return {}
+    root = Path(__file__).resolve().parents[2]
+    lock_bytes = (root/'upstream.lock.json').read_bytes()
+    lock = json.loads(lock_bytes)['components']['daed']
+    need(lock['version'] == 'v2.1.1' and
+         lock['commit'] == 'b3043aa7ce07c774c65e546112aa2c7a1c12edb5',
+         'PINNED_IMPORT_REJECTION_VERSION_MISMATCH')
+    finding = config_classification(case)
+    need(finding['owner'] == 'official daed' and all(
+        section['owner'] == 'official daed'
+        for section in finding['sourceEvidence']['sections']),
+        'PINNED_IMPORT_REJECTION_OWNER_MISMATCH')
+    import hashlib
+    return {'owner':'official daed', 'failedFields':case['sourceIgnored'],
+        'runtimeEvidence':'NOT_CLAIMED_OFFICIAL_IMPORT_REJECTED',
+        'classificationReason':'PINNED_OFFICIAL_XHTTP_IMPORT_REJECTION',
+        'sourceEvidence':{**finding['sourceEvidence'],
+            'lockFile':'upstream.lock.json',
+            'lockSha256':hashlib.sha256(lock_bytes).hexdigest(),
+            'officialVersion':lock['version'],'officialCommit':lock['commit'],
+            'operation':'importNodes','observedError':str(exc)}}
+
+
 class Nodes(Matrix):
     def __init__(self):
         super().__init__()
-        self.path=Path('/evidence/node-continuation.json')
+        self.path=scope_file(Path('/evidence/node-continuation.json'))
         self.records=json.loads(self.path.read_text()) if self.path.exists() else []
 
     def save(self):
@@ -69,7 +134,7 @@ class Nodes(Matrix):
         temp.write_text(json.dumps(self.records,indent=2)+'\n');temp.replace(self.path)
 
     def node(self, case):
-        if any(r['id']==case['id'] and r.get('baselineRestored') is True for r in self.records):return
+        if any(r['id']==case['id'] and r.get('baselineRestored') is True and r.get('result') in {'PASS','CONFIG_PASS','RUNTIME_PASS'} for r in self.records):return
         record={**case,'result':None,'stage':'import'}
         self.records.append(record);self.save();node=None;group=None
         try:
@@ -87,11 +152,10 @@ class Nodes(Matrix):
             applied,candidate=self.apply()
             need(json.dumps(case['link'],ensure_ascii=False) in candidate,'CANDIDATE_URI_CHANGED')
             record.update(candidate=candidate,applied=applied,configChainPassed=True,
-                          runtimeEvidence='PENDING_PROTOCOL_SEMANTIC_REVIEW')
-            if case['sourceIgnored']:
-                record.update(result='FAIL',reason='PINNED_TARGET_PARSER_IGNORES_VISIBLE_FIELD',failedFields=case['sourceIgnored'])
+                          **config_classification(case))
         except Exception as exc:
             record.update(result='FAIL',errorType=type(exc).__name__,reason=str(exc).replace(self.token,'[REDACTED]'))
+            record.update(import_rejection_classification(case, record['stage'], exc))
         finally:
             # Keep the original result even if a later cleanup/apply fails.
             # Restoration is an independent gate, never evidence of success.
@@ -106,7 +170,7 @@ class Nodes(Matrix):
 
 
 def main():
-    need(Path('/evidence/baseline-ready').is_file(),'VM_BASELINE_NOT_READY')
+    need(bool(read_completion('baseline-ready')),'VM_BASELINE_NOT_READY')
     need(Path('/sys/class/net/lan0').is_dir(),'VM_LAN_MISSING')
     matrix=Nodes()
     for case in cases():matrix.node(case)

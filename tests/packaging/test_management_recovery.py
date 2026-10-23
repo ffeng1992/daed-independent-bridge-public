@@ -93,21 +93,56 @@ class ManagementRecoveryTests(unittest.TestCase):
     def test_read_only_probes_do_not_hold_apply_lock(self):
         order=[]
         def health(name, kind):
-            self.assertEqual(order[-1], 'locks-closed')
+            self.assertEqual(order, [])
             return True, ''
         with patch.object(m, 'locks', side_effect=lambda: order.append('locks-open') or [123]), \
              patch.object(m, 'close_locks', side_effect=lambda _: order.append('locks-closed')), \
              patch.object(m, 'maintenance_guard'), patch.object(m, 'healthy', side_effect=health), \
              patch.object(m, 'show', return_value={'ActiveState':'active','MainPID':'123'}):
             m.check_once(100)
-        self.assertEqual(order, ['locks-open', 'locks-closed'])
+        self.assertEqual(order, [])
+
+    def test_identity_scan_and_http_do_not_reserve_writer_locks(self):
+        import fcntl
+        lock = Path(self.temp.name)/'apply.lock'; lock.touch()
+        def can_write(*args, **kwargs):
+            with lock.open('r+') as fd:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return True, ''
+        with patch.object(m, 'locks', side_effect=AssertionError('read probe locked')), \
+             patch.object(m, 'maintenance_guard', side_effect=can_write), \
+             patch.object(m, 'healthy', side_effect=can_write), \
+             patch.object(m, 'show', return_value={'ActiveState':'active','MainPID':'1'}):
+            m.check_once(100)
+
+    def test_recovery_holds_locks_through_action_and_releases_on_error(self):
+        import fcntl
+        lock = Path(self.temp.name)/'apply.lock'; lock.touch()
+        m.STATE.write_text(json.dumps({'schemaVersion':1,'services':{
+            'daed-web.service':{'consecutiveFailures':1}}}))
+        def acquire():
+            fd = __import__('os').open(lock, __import__('os').O_RDWR)
+            fcntl.flock(fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
+            return [fd]
+        def action(*args):
+            with lock.open('r+') as fd:
+                with self.assertRaises(BlockingIOError):
+                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            raise RuntimeError('injected')
+        with patch.object(m,'locks',side_effect=acquire), \
+             patch.object(m,'maintenance_guard'), \
+             patch.object(m,'healthy',side_effect=lambda n,k:(n!='daed-web.service','DOWN')), \
+             patch.object(m,'show',return_value={'ActiveState':'inactive','MainPID':'0'}), \
+             patch.object(m,'recover',side_effect=action):
+            with self.assertRaisesRegex(RuntimeError,'injected'):m.check_once(100)
+        with lock.open('r+') as fd:fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
 
     def test_apply_lock_busy_skips_recovery_without_service_action(self):
         state={'schemaVersion':1,'services':{'daed-web.service':{'consecutiveFailures':1}}}
         m.STATE.write_text(json.dumps(state)); actions=[]; calls={'locks':0}
         def lock_probe():
             calls['locks'] += 1
-            if calls['locks'] > 1: raise BlockingIOError('apply-active')
+            raise BlockingIOError('apply-active')
             return []
         with patch.object(m, 'locks', side_effect=lock_probe), patch.object(m, 'maintenance_guard'), \
              patch.object(m, 'healthy', return_value=(False,'DOWN')), \

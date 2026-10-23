@@ -27,12 +27,17 @@ class FrontendTests(unittest.TestCase):
             body=b'official fixture'
             record={'schemaVersion':1,'files':{name:{'sha256':hashlib.sha256(body).hexdigest(),'mode':0o444}}}
             for actual,expected in ((body,True),(b'changed',False)):
-                scope={'Path':Path,'MANIFEST':Path('/etc/daed-independent-bridge/install.json'),
+                scope={'__name__':'bridge_m4.authority','__package__':'bridge_m4',
+                       'Path':Path,'MANIFEST':Path('/etc/daed-independent-bridge/install.json'),
                        'directory':Mock(return_value=123),'os':Mock(),'check':check,
                        'load_json':json.loads,'digest':lambda b:hashlib.sha256(b).hexdigest(),
-                       'read_at':Mock(side_effect=[json.dumps(record).encode(),actual])}
+                       'read_at':Mock(return_value=json.dumps(record).encode()),
+                       'digest_at':Mock(return_value=hashlib.sha256(actual).hexdigest())}
                 exec(compile(ast.Module(body=[function],type_ignores=[]),'authority.py','exec'),scope)
-                if expected:self.assertEqual(scope['manifest'](),record)
+                if expected:
+                    self.assertEqual(scope['manifest'](),record)
+                    scope['digest_at'].assert_called_once_with(123,Path(name).name,0,0,0o444,
+                                                               limit=150*1024*1024,observation=False)
                 else:
                     with self.assertRaisesRegex(RuntimeError,'INSTALL_FILE_IDENTITY'):scope['manifest']()
 

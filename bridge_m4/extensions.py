@@ -8,6 +8,8 @@ import json
 import re
 from .upstream_contracts import CONFIG as MODELS, LEGACY_RECORD, contract_diagnostics, extension_fields, same_section_contract
 
+from .extension_contracts import section_identity, record_contract, require_compatible
+
 SECTIONS = {'global': 'Global', 'dns': 'Dns', 'group': 'Group'}
 
 class CompatibilityError(ValueError):
@@ -140,8 +142,8 @@ def split(text, section, *, contract=MODELS):
               'explicitSourceFields': [s[0] for s in spans], 'fields': entries}
     if contract is not LEGACY_RECORD and contract != LEGACY_RECORD:
         # A changed contract must identify itself; it cannot rewrite v1 history.
-        record['schemaVersion'] = 2
-        record['contractSha256'] = sha(json_canonical(contract))
+        record['schemaVersion'] = 3
+        record['sectionContractSha256'] = section_identity(contract, section)
     return view, record
 
 def json_canonical(value):
@@ -149,24 +151,30 @@ def json_canonical(value):
 
 def validate_record(record, section, *, contract=MODELS):
     base = {'schemaVersion','section','sourceText','sourceSha256','daedViewSha256','explicitSourceFields','fields'}
-    need(isinstance(record, dict) and type(record.get('schemaVersion')) is int
-         and record['schemaVersion'] in (1,2), 'INVALID_EXTENSION_RECORD', section)
+    need(type(record) is dict and type(record.get('schemaVersion')) is int and
+         record['schemaVersion'] in (1,2,3), 'INVALID_EXTENSION_RECORD', section)
     version = record['schemaVersion']
-    need(set(record) == (base if version == 1 else base | {'contractSha256'}) and record['section'] == section, 'INVALID_EXTENSION_RECORD', section)
-    contract = LEGACY_RECORD if version == 1 else contract
+    extra = set() if version == 1 else {'contractSha256' if version == 2 else 'sectionContractSha256'}
+    need(set(record) == base | extra and record['section'] == section, 'INVALID_EXTENSION_RECORD', section)
+    historical = record_contract(record, contract, LEGACY_RECORD)
+    need(type(record['sourceText']) is str and sha(record['sourceText']) == record['sourceSha256'],
+         'EXTENSION_INTEGRITY_FAILED', section)
+    view, original = split(record['sourceText'], section, contract=historical)
+    # Preserve the historical serialization version, not today's output version.
+    original.pop('contractSha256', None)
+    original.pop('sectionContractSha256', None)
+    original['schemaVersion'] = version
     if version == 2:
-        need(record['contractSha256'] == sha(json_canonical(contract)), 'EXTENSION_CONTRACT_CONVERSION_REQUIRED', section)
-    need(isinstance(record['sourceText'], str) and sha(record['sourceText']) == record['sourceSha256'], 'EXTENSION_INTEGRITY_FAILED', section)
-    view, original = split(record['sourceText'], section, contract=contract)
+        original['contractSha256'] = sha(json_canonical(historical))
+    elif version == 3:
+        original['sectionContractSha256'] = section_identity(historical, section)
     need(original == record, 'EXTENSION_INTEGRITY_FAILED', section)
     return view
 
 def merge(daed_text, record, *, contract=MODELS):
     """Merge a freshly collected daed document; extensions cannot shadow fields."""
     section = record['section']; validate_record(record, section, contract=contract)
-    old = LEGACY_RECORD if record['schemaVersion'] == 1 else contract
-    need(same_section_contract(section,old,contract),
-         'EXTENSION_CONTRACT_CONVERSION_REQUIRED', section)
+    require_compatible(record, contract, LEGACY_RECORD)
     known_view, found = split(daed_text, section, contract=contract)
     need(all(not x['present'] for x in found['fields'].values()), 'EXTENSION_OWNERSHIP_CONFLICT', section)
     clean = masked(known_view); end = clean.rfind('}')
@@ -184,14 +192,14 @@ def convert_record(record, section, rules, *, contract=MODELS):
     semantic rule and are intentionally rejected here. The caller publishes a
     new generation; the sealed v1 bytes remain untouched.
     """
-    old_view = validate_record(record, section)
-    need(record['schemaVersion'] == 1 and type(rules) is dict,
-         'EXTENSION_CONTRACT_CONVERSION_REQUIRED', section)
-    old_specs = extension_fields(section, LEGACY_RECORD)
+    old_view = validate_record(record, section, contract=contract)
+    need(type(rules) is dict, 'EXTENSION_CONTRACT_CONVERSION_REQUIRED', section)
+    historical = record_contract(record, contract, LEGACY_RECORD)
+    old_specs = extension_fields(section, historical)
     new_specs = extension_fields(section, contract)
     added = set(new_specs) - set(old_specs)
     name = SECTIONS[section]
-    changes = [entry for entry in contract_diagnostics(LEGACY_RECORD, contract)
+    changes = [entry for entry in contract_diagnostics(historical, contract)
                if entry['path'].startswith(name+'.')]
     need(all(entry['path'].split('.',1)[1] in added and
              ((entry['side']=='target' and entry['code']=='FIELD_ADDED') or

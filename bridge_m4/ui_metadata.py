@@ -10,7 +10,8 @@ import re
 import time
 
 from .runtime_bundle import fingerprints
-from .upstream_contracts import DAED_VERSION, DAE_VERSION, extension_fields
+from .upstream_contracts import DAED_VERSION, DAE_VERSION, extension_fields, CONFIG, LEGACY_RECORD
+from .extension_contracts import projected_fields
 
 HASH = re.compile(r'[a-f0-9]{64}')
 KINDS = (('configs', 'global'), ('dnss', 'dns'), ('groups', 'group'))
@@ -93,7 +94,7 @@ def metadata(runtime, token, *, now=None):
                     if type(record) is not dict or type(record.get('fields')) is not dict:
                         raise ValueError('UI_FIELD_STATE')
                     public_fields[ident] = {field: _field_state(state)
-                                           for field, state in record['fields'].items()}
+                                           for field, state in projected_fields(record, CONFIG, LEGACY_RECORD).items()}
             profiles[section], records[section] = rows, public_fields
             orphan_counts[section] = len(set(saved) - seen)
             specs[section] = {

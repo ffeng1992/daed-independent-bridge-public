@@ -41,14 +41,29 @@ class FakeRuntime:
 
 class ProjectionTests(unittest.TestCase):
     def setUp(self):
-        self.runtime=FakeRuntime()
-        rb=types.ModuleType('bridge_m4.runtime_bundle');rb.fingerprints=lambda s,e:{'sourceSha256':'a'*64}
-        uc=types.ModuleType('bridge_m4.upstream_contracts');uc.DAED_VERSION='v2.1.1';uc.DAE_VERSION='v2.1.1';uc.extension_fields=lambda s:{'test_field':{'type':'bool','default':'false','unsafe':'not returned'}}
-        self.patch=patch.dict(sys.modules,{'bridge_m4':types.ModuleType('bridge_m4'),'bridge_m4.runtime_bundle':rb,'bridge_m4.upstream_contracts':uc})
+        self.runtime = FakeRuntime()
+        # Stub only the dependencies of this isolated projection fixture. Never
+        # replace the real bridge_m4 package or leak it when setup raises.
+        namespace = '_bridge_projection_fixture'
+        package = types.ModuleType(namespace); package.__path__ = []
+        rb = types.ModuleType(namespace + '.runtime_bundle')
+        rb.fingerprints = lambda s, e: {'sourceSha256': 'a' * 64}
+        uc = types.ModuleType(namespace + '.upstream_contracts')
+        uc.DAED_VERSION = uc.DAE_VERSION = 'v2.1.1'
+        uc.CONFIG = {}; uc.LEGACY_RECORD = {}
+        uc.extension_fields = lambda s: {'test_field': {'type': 'bool', 'default': 'false', 'unsafe': 'not returned'}}
+        ec = types.ModuleType(namespace + '.extension_contracts')
+        # Contract parsing is covered separately; these fixtures are deliberately
+        # public field-state projections, not genuine sealed extension records.
+        ec.projected_fields = lambda record, current, legacy: copy.deepcopy(record['fields'])
+        self.patch = patch.dict(sys.modules, {namespace: package,
+            namespace + '.runtime_bundle': rb, namespace + '.upstream_contracts': uc,
+            namespace + '.extension_contracts': ec})
         self.patch.start()
-        spec=importlib.util.spec_from_file_location('bridge_m4.ui_metadata',ROOT/'bridge_m4/ui_metadata.py')
-        self.module=importlib.util.module_from_spec(spec);spec.loader.exec_module(self.module)
-    def tearDown(self):self.patch.stop()
+        self.addCleanup(self.patch.stop)
+        spec = importlib.util.spec_from_file_location(namespace + '.ui_metadata', ROOT / 'bridge_m4/ui_metadata.py')
+        self.module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.module)
     def run_projection(self):return self.module.metadata(self.runtime,'LOCAL_SESSION_ONLY',now=1234)
     def test_ids_decode(self):self.assertEqual(self.run_projection()['profiles']['group'][0]['id'],'4')
     def test_names_preserved(self):self.assertEqual(self.run_projection()['profiles']['global'][0]['name'],'正式配置')

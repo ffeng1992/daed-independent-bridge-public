@@ -11,6 +11,11 @@ from .security import check, Denied, atomic_json, canonical, digest, load_json, 
 
 BASE = Path('/var/lib/daed-independent-bridge')
 HEX = re.compile(r'[0-9a-f]{64}')
+FAILURE_CODES = frozenset({'HEALTH_FAILED','SERVICE_START_FAILED','SERVICE_STOP_FAILED','SERVICE_RELOAD_FAILED','SYSTEMD_UNAVAILABLE','PROCESS_ID','PROCESS_CONFIG','PROCESS_BINARY','PROCESS_CHANGED','STOP_NOT_CONFIRMED','UNIT_IDENTITY_MISMATCH','MANUAL_INTERVENTION_REQUIRED','SERVICE_STATE_CHANGED'})
+
+def failure_code(exc):
+    return exc.args[0] if isinstance(exc,Denied) and len(exc.args)==1 and isinstance(exc.args[0],str) and exc.args[0] in FAILURE_CODES else 'UNCLASSIFIED_FAILURE'
+
 ACTIONS = {'apply','status','recover','start','stop','reload'}
 ENV = {'PATH':'/usr/sbin:/usr/bin:/sbin:/bin','LANG':'C','LC_ALL':'C'}
 
@@ -54,13 +59,17 @@ class Systemd:
                 fields=dict(line.split('=',1) for line in again.stdout.decode().splitlines() if '=' in line)
                 check(fields=={k:raw[k] for k in ('MainPID','InvocationID')} and Path(f'/proc/{pid}/stat').read_text().split(') ',1)[1].split()[19]==before.split(') ',1)[1].split()[19], 'PROCESS_CHANGED')
                 result.update(identityVerified=True,executableSha256=exe,configSha256=config)
-            except (OSError,Denied,ValueError):result['state']='rollback-needed'
+            except (OSError,Denied,ValueError) as exc:
+                self.identity_failure=failure_code(exc)
+                result['state']='rollback-needed'
         return result
 
     def healthy(self, candidate, expected):
         first=None;stable=0
+        self.identity_failure=None
         for _ in range(40):
             result=self.observe(candidate)
+            self.last_observation=result
             valid=result['state']=='running' and result['identityVerified'] and result['configSha256']==expected
             if valid:
                 identity=(result['systemd']['MainPID'],result['systemd']['InvocationID'])
@@ -106,6 +115,35 @@ class Controller:
         syncdir(self.base)
 
     def record(self, **value):atomic_json(self.base/'transaction.json',value)
+
+    def failed_rollback(self, transaction, stage, exc):
+        # Diagnostics are best effort and never gate the existing rollback.
+        failure={'stage':stage,'exceptionType':type(exc).__name__ if type(exc) in
+                 (Denied,OSError,ValueError,RuntimeError,TimeoutError,subprocess.TimeoutExpired) else 'Exception',
+                 'errorCode':failure_code(exc),'candidate':transaction['candidate'],
+                 'previous':transaction['previous'],'phase':'ACTIVATING'}
+        try:
+            obs=getattr(self.service,'last_observation',None)
+            if isinstance(obs,dict):
+                failure['observation']={k:obs[k] for k in ('state','identityVerified') if k in obs}
+                raw=obs.get('systemd',{})
+                failure['observation']['systemd']={k:v for k,v in raw.items() if
+                    (k=='MainPID' and isinstance(v,str) and v.isdecimal()) or
+                    (k=='InvocationID' and isinstance(v,str) and re.fullmatch('[0-9a-f]{32}',v)) or
+                    (k in ('ActiveState','SubState') and v in ('active','inactive','failed','activating','deactivating','running','dead','start','start-post','stop','stop-sigterm','auto-restart','exited'))}
+                for k in ('configSha256','executableSha256'):
+                    v=obs.get(k)
+                    if isinstance(v,str) and HEX.fullmatch(v):failure['observation'][k]=v
+            code=getattr(self.service,'identity_failure',None)
+            if code in FAILURE_CODES:failure['identityErrorCode']=code
+            atomic_json(self.base/'last-failure.json',{'failure':failure,'rollback':None})
+        except Exception:pass
+        result=self.rollback(transaction)
+        try:
+            atomic_json(self.base/'last-failure.json',{'failure':failure,'rollback':{
+                'result':result['result'],'state':result['state'],'activeBundle':result['activeBundle']}})
+        except Exception:pass
+        return result
 
     def journal(self):
         if not (self.base/'transaction.json').exists():return None
@@ -259,7 +297,7 @@ class Controller:
                 if action=='stop':self.stopped(obs,'STOP_NOT_CONFIRMED')
                 self.record(**dict(tx,phase='STOPPED' if action=='stop' else 'HEALTHY'))
                 return obs
-            except Exception:return self.rollback(tx)
+            except Exception as exc:return self.failed_rollback(tx,action,exc)
         check(not current or previous_state=='running','SERVICE_NOT_RUNNING')
         payload=read_set(self.base/'inbox'/identity,self.policy['bridgeUid'],self.policy['bridgeGid'],FILES|{'bundle.json'},0o400)
         envelope=self.bundle_verifier(payload,identity,self.policy['receipt'],int(self.now()))
@@ -282,12 +320,17 @@ class Controller:
         tx={'candidate':identity,'previous':current,'previousServiceState':previous_state,'previousIdentity':self.previous_identity,'phase':'PREPARED','validation':validation}
         self.record(**tx);self.checkpoint('before-switch')
         self.switch(identity);self.record(**dict(tx,phase='PUBLISHED'));self.checkpoint('after-switch')
+        stage='record-activating'
         try:
             self.record(**dict(tx,phase='ACTIVATING'))
+            stage='stop-previous'
             if previous_state=='running':self.service.command('stop')
+            stage='start-candidate'
             self.service.command('start')
             self.checkpoint('after-start')
+            stage='verify-candidate-health'
             obs=self.healthy(identity)
+            stage='record-healthy'
             self.record(**dict(tx,phase='HEALTHY'))
             return dict(obs,result='APPLIED',activeBundle=identity)
-        except Exception:return self.rollback(tx)
+        except Exception as exc:return self.failed_rollback(tx,stage,exc)

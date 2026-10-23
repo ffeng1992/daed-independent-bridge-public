@@ -251,18 +251,26 @@ class RuntimeIntegrationTests(unittest.TestCase):
                 validation.verified_selected_hashes()
 
     def test_retired_policy_dns_does_not_require_release_configuration(self):
-        response = mock.Mock(stdout='inactive\n')
-        with mock.patch.object(updater.subprocess, 'run', return_value=response):
+        from bridge_m4 import deployment_profile
+        response = mock.Mock(stdout='LoadState=loaded\nActiveState=inactive\nMainPID=0\nControlPID=0\nUnitFileState=disabled\n')
+        with mock.patch.object(deployment_profile, 'load', return_value=None), \
+             mock.patch.object(updater.subprocess, 'run', return_value=response):
             self.assertFalse(updater.policy_dns_active())
 
     def test_active_policy_dns_remains_checked(self):
-        with mock.patch.object(updater.subprocess, 'run', return_value=mock.Mock(stdout='active\n')):
+        from bridge_m4 import deployment_profile
+        response = mock.Mock(stdout='LoadState=loaded\nActiveState=active\nMainPID=123\nControlPID=0\nUnitFileState=enabled\n')
+        with mock.patch.object(deployment_profile, 'load', return_value=None), \
+             mock.patch.object(updater.subprocess, 'run', return_value=response):
             self.assertTrue(updater.policy_dns_active())
 
     def test_unknown_or_transitioning_policy_dns_fails_closed(self):
+        from bridge_m4 import deployment_profile
         for state in ('activating', 'failed', 'unexpected'):
-            with self.subTest(state=state), mock.patch.object(updater.subprocess, 'run',
-                    return_value=mock.Mock(stdout=state+'\n')):
+            response = mock.Mock(stdout='LoadState=loaded\nActiveState=' + state + '\nMainPID=0\nControlPID=0\nUnitFileState=disabled\n')
+            with self.subTest(state=state), \
+                 mock.patch.object(deployment_profile, 'load', return_value=None), \
+                 mock.patch.object(updater.subprocess, 'run', return_value=response):
                 with self.assertRaises(RuntimeError):
                     updater.policy_dns_active()
 
@@ -283,20 +291,22 @@ class RuntimeIntegrationTests(unittest.TestCase):
         self.assertIn('bridge-geodata-update.service', release_lifecycle.STOP)
 
     def test_validator_keeps_original_asset_identity(self):
-        import ast
-        old = """def asset_identity():
-    pins={p['path']:p for p in DAE_ARTIFACT['archive_members']}
-    observed={}
-    for name in ('geoip.dat','geosite.dat'):
-        body=(ASSETS/name).read_bytes();observed[name]=digest(body)
-        check(len(body)==pins[name]['size'] and observed[name]==pins[name]['sha256'],'OFFICIAL_ASSET_HASH')
-    return observed
-"""
-        new = (RELEASE/'bridge_m4/validation.py').read_text()
-        function = lambda body: next(n for n in ast.parse(body).body
-                                    if isinstance(n,ast.FunctionDef) and n.name=='asset_identity')
-        self.assertEqual(ast.dump(function(old),include_attributes=False),
-                         ast.dump(function(new),include_attributes=False))
+        from bridge_m4 import validation
+        from bridge_m2.security import Denied
+        import hashlib
+        with tempfile.TemporaryDirectory() as directory:
+            folder = pathlib.Path(directory)
+            data = {'geoip.dat': b'fixture-ip', 'geosite.dat': b'fixture-site'}
+            pins = [{'path': n, 'size': len(b), 'sha256': hashlib.sha256(b).hexdigest()}
+                    for n, b in data.items()]
+            for n, b in data.items(): (folder / n).write_bytes(b)
+            with mock.patch.object(validation, 'ASSETS', folder), \
+                 mock.patch.object(validation, 'DAE_ARTIFACT', {'archive_members': pins}):
+                self.assertEqual(validation.asset_identity(), {p['path']: p['sha256'] for p in pins})
+                (folder / 'geoip.dat').write_bytes(b'corrupt!')
+                with self.assertRaisesRegex(Denied, 'OFFICIAL_ASSET_HASH'): validation.asset_identity()
+                (folder / 'geoip.dat').unlink()
+                with self.assertRaises(FileNotFoundError): validation.asset_identity()
 
 class CommandResultTests(unittest.TestCase):
     def test_restored_update_is_not_reported_as_success(self):

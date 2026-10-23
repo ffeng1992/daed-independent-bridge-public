@@ -1,4 +1,5 @@
 """Actual Hysteria2 bandwidth/UDP probes, using an unmodified test server."""
+from integration.ui_matrix.evidence_scope import scope_file
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -75,7 +76,7 @@ def run(matrix, *, udp_health_only=False):
                                   ('bandwidth-endpoint', ['ip', 'netns', 'exec', 'matrix-endpoint', 'python3', '-m',
                                                           'integration.ui_matrix.bandwidth_endpoint'])]:
                 log_name = name + ('-udp-health' if udp_health_only else '') + '-fixture.log'
-                log = (Path('/evidence') / log_name).open('xb'); logs.append(log)
+                log = (scope_file(Path('/evidence')) / log_name).open('xb'); logs.append(log)
                 processes.append(subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT))
             time.sleep(1)
             need(all(p.poll() is None for p in processes), 'BANDWIDTH_FIXTURE_START_FAILED')

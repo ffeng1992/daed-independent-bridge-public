@@ -12,7 +12,10 @@ ROOT=Path('/var/lib/bridge-m4-install')
 ALLOWED=('/opt/bridge-daed-web/','/opt/bridge-daed-web-entry/','/opt/bridge/','/opt/bridge-official/','/opt/bridge-service/','/usr/local/bin/bridge-','/etc/systemd/system/','/etc/tmpfiles.d/bridge-')
 EXACT={'/etc/daed-independent-bridge/install.json','/var/lib/daed-independent-bridge/policy.json'}
 
-OPTIONAL_EXACT={'/etc/dae-dns-repair/sync_policy_independent.py'}
+OPTIONAL_EXACT={'/etc/dae-dns-repair/sync_policy_independent.py','/var/lib/daed-independent-bridge/apply.lock'}
+OPTIONAL_EXACT.update('/etc/daed-independent-bridge/'+n for n in (
+    'release.json','health.json','web.json','tls.crt','tls.key','layout.json',
+    'setup-pending','bridge-login.token','backend.token'))
 
 def allowed(name):return name in EXACT or name in OPTIONAL_EXACT or name.startswith(ALLOWED)
 
@@ -53,7 +56,11 @@ def exclusive():
         yield
     finally:os.close(fd)
 
-def begin(paths):
+def begin(paths,context=None):
+    if context is not None:
+        need(type(context) is dict and set(context)=={'kind','attemptId'} and context['kind']=='native-lifecycle'
+             and type(context['attemptId']) is str and len(context['attemptId'])==32
+             and all(c in '0123456789abcdef' for c in context['attemptId']))
     ROOT.mkdir(mode=0o700,exist_ok=True)
     need(not ROOT.is_symlink() and ROOT.stat().st_uid==0 and stat.S_IMODE(ROOT.stat().st_mode)==0o700)
     previous=load();need(not previous or previous['phase'] in {'COMMITTED','RESTORED'})
@@ -70,7 +77,13 @@ def begin(paths):
             with os.fdopen(fd,'wb') as f:f.write(body);f.flush();os.fsync(f.fileno())
             item.update(backup=filename,sha256=sha(body),mode=stat.S_IMODE(st.st_mode))
         records.append(item)
-    sync(backup);journal({'phase':'APPLYING','generation':generation,'files':records})
+    value={'phase':'APPLYING','generation':generation,'files':records}
+    if context is not None:
+        need(type(context) is dict and set(context)=={'kind','attemptId'} and context['kind']=='native-lifecycle'
+             and type(context['attemptId']) is str and len(context['attemptId'])==32
+             and all(c in '0123456789abcdef' for c in context['attemptId']))
+        value['context']=dict(context)
+    sync(backup);journal(value)
 def commit():
     value=load();need(value is not None and value['phase']=='APPLYING');value['phase']='COMMITTED';journal(value)
 def restore():
@@ -87,4 +100,8 @@ def restore():
             need('/' not in item['backup'] and item['backup'].endswith('.blob'))
             body=(backup/item['backup']).read_bytes();need(sha(body)==item['sha256'])
             write(p,body,item['mode'])
+    for name in reversed(value.get('createdDirectories', [])):
+        p=Path(name)
+        need(p.is_absolute() and '..' not in p.parts and str(p).startswith('/opt/bridge/') and not p.is_symlink())
+        if p.exists():p.rmdir()  # Refuse to delete unknown/nonempty contents.
     value['phase']='RESTORED';journal(value)

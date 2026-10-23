@@ -60,9 +60,8 @@ class ExtensionStore:
             specs=extension_specs(section);need(field in specs,'EXTENSION_OWNERSHIP_CONFLICT','$')
             need(isinstance(state,dict) and type(state.get('present')) is bool and set(state)==({'present','value'} if state['present'] else {'present'}),'INVALID_PRESENCE_STATE','$')
             record=current['extensions']['records'][section][profile];view=validate_record(record,section)
-            if record['schemaVersion']==1:
-                need(same_section_contract(section,LEGACY_RECORD,CONFIG),
-                     'EXTENSION_CONTRACT_CONVERSION_REQUIRED',section)
+            from .extension_contracts import require_compatible
+            require_compatible(record, CONFIG, LEGACY_RECORD)
             fields=json.loads(json.dumps(record['fields']));fields[field]=state
             lines=[]
             for key,entry in sorted(fields.items()):

@@ -22,7 +22,10 @@ def envelope(value):
     if value.get('errors'):
         # Never copy upstream messages, which can contain tokens or URI values.
         fail('UPSTREAM_GRAPHQL_ERROR', message='GraphQL returned errors; partial data is discarded.')
-    require(set(value) == {'data'} and isinstance(value['data'], dict), 'FORMAT_ERROR')
+    require({'data'} <= set(value) <= {'data','extensions','errors'} and
+            isinstance(value['data'], dict) and
+            ('extensions' not in value or type(value['extensions']) is dict) and
+            ('errors' not in value or value['errors'] == []), 'FORMAT_ERROR')
     return value['data']
 
 

@@ -1,8 +1,10 @@
+from integration.ui_matrix.completion import read as read_completion
 """Remaining metadata controls against the same isolated official backend.
 
 This does not rerun signup/password/lifecycle acceptance or claim that metadata
 is a DAE option. Every change is restored through the official API.
 """
+from integration.ui_matrix.evidence_scope import scope_file
 import json
 import time
 from pathlib import Path
@@ -15,7 +17,7 @@ from scripts.release_setup import need
 class Metadata(Matrix):
     def __init__(self):
         super().__init__()
-        self.path = Path('/evidence/metadata-continuation.json')
+        self.path = scope_file(Path('/evidence/metadata-continuation.json'))
         self.results = json.loads(self.path.read_text()) if self.path.exists() else []
 
     def check(self, ident, action):
@@ -91,8 +93,8 @@ class Metadata(Matrix):
 
 
 def main():
-    need(Path('/evidence/baseline-ready').is_file(), 'VM_BASELINE_NOT_READY')
-    need(Path('/evidence/nodes-complete').is_file(), 'PREVIOUS_BATCH_NOT_COMPLETE')
+    need(bool(read_completion('baseline-ready')), 'VM_BASELINE_NOT_READY')
+    need(bool(read_completion('nodes-complete')), 'PREVIOUS_BATCH_NOT_COMPLETE')
     need(Path('/sys/class/net/lan0').is_dir(), 'VM_LAN_MISSING')
     matrix = Metadata()
     matrix.check('general.interfaces-and-independent-identity', matrix.general)

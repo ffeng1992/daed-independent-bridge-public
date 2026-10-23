@@ -1,4 +1,5 @@
 """Bounded reserved-network transfer endpoint for bandwidth field evidence."""
+from integration.ui_matrix.evidence_scope import scope_file
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import hashlib
 import json
@@ -39,6 +40,6 @@ class Endpoint(BaseHTTPRequestHandler):
 
 
 if __name__ == '__main__':
-    if not Path('/evidence/path-fixture-ready').is_file():
+    if not scope_file(Path('/evidence/path-fixture-ready')).is_file():
         raise SystemExit('EXISTING_ISOLATED_PATH_FIXTURE_REQUIRED')
     ThreadingHTTPServer(('198.51.100.2', 18086), Endpoint).serve_forever()

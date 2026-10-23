@@ -5,12 +5,15 @@ These tests never call host systemctl and are NOT real systemd acceptance.
 from contextlib import ExitStack
 import copy
 import json
+import os
 from pathlib import Path
+import stat
 import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 from scripts import release_native_lifecycle as n
+from bridge_m4 import maintenance_state
 
 
 def state(active='inactive', *, load='loaded', enabled='static', pid='0', control='0'):
@@ -217,13 +220,22 @@ class PreflightJournalTests(unittest.TestCase):
                       'previousGeneration':'old','manifestBefore':None,
                       'beforeTimers':{unit:state('active',enabled='enabled') for unit in n.TIMERS}}
     def save(self,value):self.path.write_text(json.dumps(value));self.path.chmod(0o600)
+    def trusted_fixture(self,path):
+        # Schema tests begin after the separately tested root-authority reader.
+        self.assertEqual(path,self.path)
+        return json.loads(path.read_text())
     def test_quiescing_journal_can_resume_without_fabricated_full_snapshot(self):
-        self.save(self.attempt);self.assertEqual(n.read_attempt(self.tx),self.attempt)
+        self.save(self.attempt)
+        with patch.object(maintenance_state,'_read',side_effect=self.trusted_fixture) as read:
+            self.assertEqual(n.read_attempt(self.tx),self.attempt)
+        read.assert_called_once_with(self.path)
     def test_unknown_or_ambiguous_partial_journal_is_rejected(self):
         for changes in ({'recoveryScope':'other'},{'phase':'APPLYING'}, {'beforeTimers':{}},
                         {'beforeUnits':{}}):
             self.save(dict(self.attempt,**changes))
-            with self.assertRaisesRegex(RuntimeError,'LIFECYCLE_JOURNAL'):n.read_attempt(self.tx)
+            with patch.object(maintenance_state,'_read',side_effect=self.trusted_fixture) as read:
+                with self.assertRaisesRegex(RuntimeError,'LIFECYCLE_JOURNAL'):n.read_attempt(self.tx)
+            read.assert_called_once_with(self.path)
     def test_changed_installer_journal_keeps_triggers_stopped(self):
         self.tx.load.return_value={'phase':'APPLYING','generation':'other'}
         with patch.object(n,'restore_timers') as restore:
@@ -238,6 +250,54 @@ class PreflightJournalTests(unittest.TestCase):
         with patch.object(n,'MANIFEST',self.root/'absent'),patch.object(n,'restore_timers',return_value=[{'unit':n.TIMERS[0]}]):
             result=n.recover_trigger_preflight(self.attempt,self.tx,Mock())
         self.assertFalse(result['complete'])
+
+
+class JournalAuthorityTests(unittest.TestCase):
+    """Exercise the real reader with synthetic kernel ownership, never chown/sudo."""
+    def setUp(self):
+        tmp=tempfile.TemporaryDirectory();self.addCleanup(tmp.cleanup)
+        self.path=Path(tmp.name).resolve()/'native-lifecycle.json'
+        self.path.write_text('{"schemaVersion":1}');self.path.chmod(0o600)
+        self.fstat=os.fstat
+
+    def metadata(self,*,directory_uid=0,directory_writable=False,file_uid=0):
+        def observe(fd):
+            value=self.fstat(fd)
+            fields={name:getattr(value,name) for name in dir(value) if name.startswith('st_')}
+            directory=stat.S_ISDIR(value.st_mode)
+            fields['st_uid']=directory_uid if directory else file_uid
+            if directory and directory_writable:fields['st_mode']|=0o020
+            return SimpleNamespace(**fields)
+        return observe
+
+    def test_root_owned_private_journal_is_read(self):
+        with patch.object(os,'fstat',side_effect=self.metadata()):
+            self.assertEqual(maintenance_state._read(self.path),{'schemaVersion':1})
+
+    def test_nonroot_parent_is_rejected_before_file_read(self):
+        with patch.object(os,'fstat',side_effect=self.metadata(directory_uid=1001)), \
+             patch.object(maintenance_state,'read_json') as read:
+            with self.assertRaisesRegex(RuntimeError,'ROLLBACK_STATE_AUTHORITY'):
+                maintenance_state._read(self.path)
+        read.assert_not_called()
+
+    def test_writable_parent_is_rejected_before_file_read(self):
+        with patch.object(os,'fstat',side_effect=self.metadata(directory_writable=True)), \
+             patch.object(maintenance_state,'read_json') as read:
+            with self.assertRaisesRegex(RuntimeError,'ROLLBACK_STATE_AUTHORITY'):
+                maintenance_state._read(self.path)
+        read.assert_not_called()
+
+    def test_nonroot_file_is_rejected(self):
+        with patch.object(os,'fstat',side_effect=self.metadata(file_uid=1001)):
+            with self.assertRaisesRegex(ValueError,'HISTORY_FILE_AUTHORITY'):
+                maintenance_state._read(self.path)
+
+    def test_wrong_file_mode_is_rejected(self):
+        self.path.chmod(0o640)
+        with patch.object(os,'fstat',side_effect=self.metadata()):
+            with self.assertRaisesRegex(ValueError,'HISTORY_FILE_AUTHORITY'):
+                maintenance_state._read(self.path)
 
 
 if __name__=='__main__':unittest.main()

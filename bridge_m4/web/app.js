@@ -53,7 +53,7 @@
     const PAGE_TITLES = { overview: '总览', config: '配置应用', extensions: 'DAE 扩展', health: '健康与恢复', advanced: '高级维护' };
     const ACTION_NAMES = { preview: '生成配置预览', validate: '校验配置', apply: '应用配置', extensions: '保存扩展', 'bind-extensions': '同步新建配置', 'management-recovery/pause': '暂停自动恢复', 'management-recovery/resume': '恢复自动恢复', start: '启动 DAE', stop: '停止 DAE', reload: '重载 DAE', recover: '恢复事务' };
     const ERROR_TEXT = {
-        UNAUTHORIZED: '登录已过期，请重新输入管理密钥。', AUTH_FAILED: '登录未通过，请核对 Bridge 管理密钥。', AUTH_RATE_LIMIT: '登录尝试过于频繁，请稍后再试。', AUTH_BUSY: '认证服务暂时忙，请稍后重试。', CSRF_REJECTED: '安全凭据已变化，本次操作被拒绝。页面会在下一次明确提交前重新核对会话。', REQUEST_REJECTED: '请求被安全检查拒绝。请确认访问的是部署时设置的 HTTPS 地址。',
+        UNAUTHORIZED: '登录已过期，请重新登录。', AUTH_FAILED: '登录未通过，请核对独立桥登录凭据。', AUTH_RATE_LIMIT: '登录尝试过于频繁，请稍后再试。', AUTH_BUSY: '认证服务暂时忙，请稍后重试。', CSRF_REJECTED: '安全凭据已变化，本次操作被拒绝。页面会在下一次明确提交前重新核对会话。', REQUEST_REJECTED: '请求被安全检查拒绝。请确认访问的是部署时设置的 HTTPS 地址。',
         SOURCE_CHANGED: '官方配置已变化，请重新生成预览。', EXTENSION_CHANGED: '扩展记录已变化，请核对最新值并重新预览。', EXTENSION_CAS_CONFLICT: '其他操作已更新扩展记录；已停止保存，请核对草稿与服务器当前值。', PREVIEW_CONFLICT: '这份预览已失效，请重新生成。', VALIDATION_REQUIRED: '请先完成当前候选的校验。', VALIDATE_FAILED: '官方 DAE 静态校验未通过。请核对配置，不要直接应用。', OLD_SOURCE: '来源证据与候选不一致，请重新预览。', SOURCE_EXPIRED: '来源签发凭据已过期，请检查配置签发服务。', STATUS_REJECTED: '当前运行状态不允许应用配置，请查看高级维护。', UNMANAGED_SERVICE_ACTIVE: '存在未受管理的运行服务，已拒绝操作。', MANUAL_INTERVENTION_REQUIRED: '当前事务需要管理员检查，不能自动继续。', UNIT_IDENTITY_MISMATCH: '服务身份不匹配，已拒绝操作。', MANAGEMENT_HEALTH_STATE: '无法读取自动恢复记录，请查看管理服务日志。', MANAGEMENT_RECOVERY_BLOCKED: '维护、回滚或安装身份检查未通过，暂不能恢复自动管理。', MANAGEMENT_RECOVERY_REQUEST: '自动恢复控制请求无效。', MANAGEMENT_HEALTH_UNAVAILABLE: '当前后端没有提供自动恢复状态接口。',
         REQUEST_FAILED: '请求未完成。请核对后端记录，页面不会自动重试写入。', BUSY: '服务正在处理其他事务，请稍后刷新状态。', NETWORK_ERROR: '暂时无法连接 Bridge。请检查网络和 HTTPS 证书。', READ_TIMEOUT: '读取超时。相关内容暂不作为最新状态，请稍后刷新。', WRITE_UNCERTAIN: '请求结果未确认，服务器可能已执行操作。请先核对结果，不要重复提交。', INVALID_RESPONSE: '服务器返回了无法识别的响应，未把它当作成功。', INVALID_HEALTH_RESPONSE: '管理巡检返回的组件记录不完整或自相矛盾，暂不显示全部正常。', METADATA_MISSING: '编辑接口不匹配或不可用，请确认本版只读展示模块已部署。暂不允许盲目编辑。', EDITOR_INCOHERENT: '配置列表、字段或代际不一致，编辑已锁定；请刷新后核对。', EMPTY_REFERENCED_GROUP: '被路由使用的分组没有可用节点，请先到官方 daed 配置。', NO_CHANGES: '没有需要保存的修改。', UNKNOWN_RESULT: '服务器没有返回明确完成结果，需核对实际状态，不要重复操作。', CONFIRMED_STATE_CHANGED: '确认期间服务器状态已经改变，本次没有提交。请核对新状态后重新确认。', OTHER_WINDOW_BUSY: '另一个窗口正在操作或有未确认的写入。本页只读取状态，暂不重复提交。', CONTROL_ROLLED_BACK: '本次操作未成功，控制服务已恢复原状态。没有自动重试。', PROFILE_GONE: '当前对象已从官方配置中移除。草稿保留在本页，不会写入其他对象。', CLIENT_STORAGE_UNAVAILABLE: '浏览器无法保存写入防重标记。本页暂时只读，请允许此站点的本地存储后重新打开。',
         INCOMPLETE_SAVE: '只保存了部分字段；后续提交已停止。请核对保存明细与剩余草稿。'
@@ -114,6 +114,19 @@
             try { writeMarker({ ...m, phase: 'uncertain' }); } catch (_) { /* Keep the in-memory guard. */ }
         }
     }
+    function configureLogin(options) {
+        S.loginMode = options.loginMode === 'password' ? 'password' : 'token';
+        const account = S.loginMode === 'password';
+        $('login-account').hidden = !account;
+        $('login-username').required = account;
+        $('login-token').name = account ? 'password' : 'token';
+        $('login-token').maxLength = account ? 1024 : 8192;
+        $('login-secret-label').textContent = account ? '密码' : '管理密钥（原登录令牌）';
+        $('login-description').textContent = account ? '使用独立桥账号和密码登录。' : '使用此设备的 Bridge 管理密钥。';
+        $('token-help').textContent = account ? '这是独立桥管理账号，与系统 root 和官方 daed 账号分别验证。' : '与官方 daed 账号分开验证，不修改任何现有密码。';
+        $('login-help').hidden = account;
+        $('toggle-secret').setAttribute('aria-label', account ? '显示密码' : '显示管理密钥');
+    }
     function resetLogin(text = '', preserve = false) {
         if (preserve && dirty()) S.suspended = { section: S.section, profile: S.profile, drafts: new Map(S.drafts), bases: new Map(S.draftBase) };
         if (!preserve) { S.suspended = null; S.saveReport=null; }
@@ -124,7 +137,7 @@
         S.errors = {}; S.readAt = {}; S.readMono = {}; S.serverClock = null; S.readBusy=false;
         $('app').hidden = true; $('login-screen').hidden = false; $('boot').hidden = true;
         $('login-token').value = ''; $('login-token').type = 'password';
-        $('toggle-secret').setAttribute('aria-pressed','false'); $('toggle-secret').setAttribute('aria-label','显示管理密钥');
+        $('toggle-secret').setAttribute('aria-pressed','false'); $('toggle-secret').setAttribute('aria-label',S.loginMode === 'password' ? '显示密码' : '显示管理密钥');
         $('login-error').textContent = text + (S.suspended ? ' 未保存草稿仅保留在当前页面；重新登录后会核对服务器版本，关闭页面会丢失。' : '');
         $('login-error').hidden = !$('login-error').textContent;
         ['fields','components','recovery-history','technical-values','identity-summary','preview-result','profile-list','recent-recovery','draft-review','save-report','uncertain-readback'].forEach(id => $(id)?.replaceChildren());
@@ -860,11 +873,11 @@
         if (typeof c.csrf !== 'string')
             throw new ApiError('INVALID_RESPONSE');
         S.csrf = c.csrf;
-        await api('login', { token });
+        await api('login', S.loginMode === 'password' ? {username: $('login-username').value, password: token} : { token });
         $('login-form').reset();
         $('login-token').type = 'password';
         $('toggle-secret').setAttribute('aria-pressed','false');
-        $('toggle-secret').setAttribute('aria-label','显示管理密钥');
+        $('toggle-secret').setAttribute('aria-label',S.loginMode === 'password' ? '显示密码' : '显示管理密钥');
         S.busy = false;
         await entered();
     }
@@ -876,7 +889,7 @@
     finally {
         setBusy(false);
     } };
-    $('toggle-secret').onclick = () => { const show = $('login-token').type === 'password'; $('login-token').type = show ? 'text' : 'password'; $('toggle-secret').setAttribute('aria-pressed', String(show)); $('toggle-secret').setAttribute('aria-label', show ? '隐藏管理密钥' : '显示管理密钥'); };
+    $('toggle-secret').onclick = () => { const show = $('login-token').type === 'password'; $('login-token').type = show ? 'text' : 'password'; $('toggle-secret').setAttribute('aria-pressed', String(show)); $('toggle-secret').setAttribute('aria-label', S.loginMode === 'password' ? (show ? '隐藏密码' : '显示密码') : (show ? '隐藏管理密钥' : '显示管理密钥')); };
     $('refresh').onclick = async () => { if (dirty()) {
         toast('本地草稿已保留，重新核对服务器状态和字段版本。');
         await refresh(false);
@@ -1152,6 +1165,7 @@
         document.querySelectorAll('.official-dynamic,#official-link').forEach(a => { a.href = '#'; a.onclick = e => { e.preventDefault(); toast('演示页面不连接官方 daed。'); }; });
     }
     (async () => { try {
+        configureLogin(await api('challenge'));
         await api('session');
         await entered();
     }

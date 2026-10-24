@@ -118,3 +118,20 @@ class WebTests(unittest.TestCase):
         self.login();status,raw,_=self.req('/api/bind-extensions',{})
         self.assertEqual(status,409)
         self.assertEqual(json.loads(raw),{'error':'EXTENSION_CAS_CONFLICT'})
+
+    def test_account_login_over_http_and_private_challenge(self):
+        from bridge_m4.auth import BridgeAuthenticator,password_record
+        record=password_record('root','synthetic-account-password')
+        self.server.sessions=Sessions(BridgeAuthenticator(lambda:'legacy-token',lambda:record))
+        status,raw,_=self.req('/api/challenge');options=json.loads(raw)
+        self.assertEqual(status,200);self.assertEqual(options['loginMode'],'password')
+        self.assertEqual(set(options),{'csrf','loginMode'});self.csrf=options['csrf']
+        status,raw,_=self.req('/api/login',{'username':'root','password':'wrong'})
+        self.assertEqual(status,401);self.assertEqual(json.loads(raw),{'error':'AUTH_FAILED'})
+        status,raw,_=self.req('/api/challenge');self.csrf=json.loads(raw)['csrf']
+        status,raw,headers=self.req('/api/login',{'username':'root','password':'synthetic-account-password'})
+        self.assertEqual(status,200);self.csrf=json.loads(raw)['csrf']
+        for flag in ('Secure','HttpOnly','SameSite=Strict'):self.assertIn(flag,headers['Set-Cookie'])
+        self.assertEqual(self.req('/api/status')[0],200)
+        self.assertEqual(self.req('/api/logout',{})[0],200)
+        self.assertEqual(self.req('/api/status')[0],401)

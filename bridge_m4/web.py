@@ -74,7 +74,10 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(200,(STATIC/name).read_bytes(),content_type={'/':'text/html; charset=utf-8','/app.js':'text/javascript; charset=utf-8','/style.css':'text/css; charset=utf-8'}[path]);return
         if not mutating and path=='/api/challenge':
             c=self.server.sessions.challenge()
-            self.reply(200,{'csrf':c},cookie=self.cookie(CHALLENGE,c,60));return
+            options={}
+            if hasattr(self.server.sessions.authenticator,'login_options'):
+                options=self.server.sessions.authenticator.login_options()
+            self.reply(200,{'csrf':c,**options},cookie=self.cookie(CHALLENGE,c,60));return
         cookies=self.cookies()
         if mutating and self.headers.get('Origin')!=self.server.origin:raise AuthError('CSRF_REJECTED')
         if mutating and path=='/api/login':

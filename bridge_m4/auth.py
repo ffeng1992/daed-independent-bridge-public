@@ -55,15 +55,73 @@ def local_token(name):
     return value
 
 
+def password_record(username,password):
+    """Generate a salted verifier, never a recoverable password."""
+    if (type(username) is not str or not 1<=len(username)<=128 or username.strip()!=username
+            or type(password) is not str or not 12<=len(password)<=1024):
+        raise AuthError('AUTH_CONFIGURATION')
+    salt=secrets.token_bytes(16)
+    return {'schemaVersion':1,'username':username,'algorithm':'pbkdf2-sha256',
+            'iterations':600000,'salt':salt.hex(),
+            'digest':hashlib.pbkdf2_hmac('sha256',password.encode(),salt,600000).hex()}
+
+
+def local_account():
+    import os
+    from bridge_m2.security import directory,read_at
+    fd=directory('/etc/daed-independent-bridge',0,0,0o755)
+    try:
+        try:raw=read_at(fd,'bridge-account.json',0,os.getegid(),0o640,limit=4096)
+        except FileNotFoundError:return None
+    finally:os.close(fd)
+    try:return json.loads(raw)
+    except (ValueError,UnicodeError):raise AuthError('AUTH_CONFIGURATION') from None
+
+
 class BridgeAuthenticator:
     """Separate bridge administrator credential, with no daed API dependency."""
-    def __init__(self,reader=None):self.reader=reader or (lambda:local_token('bridge-login.token'))
+    def __init__(self,reader=None,account_reader=None):
+        self.reader=reader or (lambda:local_token('bridge-login.token'))
+        self.account_reader=account_reader if account_reader is not None else (local_account if reader is None else lambda:None)
+    def account(self):
+        import re
+        record=self.account_reader()
+        if record is None:return None
+        if (type(record) is not dict or set(record)!={'schemaVersion','username','algorithm','iterations','salt','digest'}
+                or type(record['schemaVersion']) is not int or record['schemaVersion']!=1
+                or type(record['username']) is not str or not 1<=len(record['username'])<=128
+                or record['algorithm']!='pbkdf2-sha256' or type(record['iterations']) is not int or record['iterations']!=600000
+                or type(record['salt']) is not str or not re.fullmatch('[0-9a-f]{32}',record['salt'])
+                or type(record['digest']) is not str or not re.fullmatch('[0-9a-f]{64}',record['digest'])):
+            raise AuthError('AUTH_CONFIGURATION')
+        return record
+    @staticmethod
+    def account_session(record):
+        return 'bridge-account:'+hashlib.sha256(json.dumps(record,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+    def login_options(self):
+        return {'loginMode':'password' if self.account() is not None else 'token'}
     def verify(self,token):
+        if type(token) is str and token.startswith('bridge-account:'):
+            record=self.account()
+            if record is None or not secrets.compare_digest(token,self.account_session(record)):raise AuthError('AUTH_FAILED')
+            return
         if type(token) is not str or not secrets.compare_digest(token.encode(),self.reader().encode()):
             raise AuthError('AUTH_FAILED')
     def login(self,credentials):
-        if type(credentials) is not dict or set(credentials)!={'token'}:raise AuthError('AUTH_FAILED')
-        token=credentials['token'];self.verify(token);return token
+        if type(credentials) is not dict:raise AuthError('AUTH_FAILED')
+        if set(credentials)=={'username','password'}:
+            record=self.account()
+            if record is None or not all(type(v) is str and 1<=len(v)<=1024 for v in credentials.values()):raise AuthError('AUTH_FAILED')
+            actual=hashlib.pbkdf2_hmac('sha256',credentials['password'].encode(),bytes.fromhex(record['salt']),record['iterations']).hex()
+            valid_user=secrets.compare_digest(credentials['username'].encode(),record['username'].encode())
+            if not (secrets.compare_digest(actual,record['digest']) and valid_user):raise AuthError('AUTH_FAILED')
+            return self.account_session(record)
+        if set(credentials)=={'token'}:
+            token=credentials['token']
+            # Session proofs are internal and must never become login credentials.
+            if type(token) is not str or token.startswith('bridge-account:'):raise AuthError('AUTH_FAILED')
+            self.verify(token);return token
+        raise AuthError('AUTH_FAILED')
 
 
 @dataclass

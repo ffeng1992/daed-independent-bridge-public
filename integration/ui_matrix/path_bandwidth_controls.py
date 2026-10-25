@@ -85,8 +85,9 @@ def run(matrix, *, udp_health_only=False):
                                   {'a': [{'link': link}]})['importNodes'][0]
             need(not imported['error'] and imported['node'], 'BANDWIDTH_NODE_REJECTED')
             node = imported['node']['id']
-            group_query = ('mutation{createGroup(name:"matrix_bandwidth",policy:min,policyParams:[]){id}}' if udp_health_only else
-                           'mutation{createGroup(name:"matrix_bandwidth",policy:fixed,policyParams:[{key:"",val:"0"}]){id}}')
+            # UDP health is an explicit witness in both bandwidth cases. Fixed
+            # bypasses the official alive set, so use min with the single node.
+            group_query = 'mutation{createGroup(name:"matrix_bandwidth",policy:min,policyParams:[]){id}}'
             group = matrix.api(group_query)['createGroup']['id']
             matrix.api('mutation($id:ID!,$ids:[ID!]!){groupAddNodes(id:$id,nodeIDs:$ids)}', {'id': group, 'ids': [node]})
             matrix.api('mutation($id:ID!){updateRouting(id:$id,routing:"fallback: matrix_bandwidth"){id}}', {'id': matrix.routing})

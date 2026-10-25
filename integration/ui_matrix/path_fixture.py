@@ -10,7 +10,8 @@ import threading
 import time
 from pathlib import Path
 from urllib.parse import urlsplit
-from integration.ui_matrix.path_event_log import append
+from integration.ui_matrix.path_event_log import append, FixtureEvidence
+EVIDENCE = None
 
 LOG = Path('/evidence/path-events.jsonl')
 AUTH = 'Basic ' + base64.b64encode(b'synthetic-user:SyntheticOnly314159').decode()
@@ -40,16 +41,17 @@ def client_hello_program(delay):
 
 
 def delay_for(port):
-    if not scope_file(DELAYS).exists():
+    path = EVIDENCE.path(DELAYS.name)
+    if not path.exists():
         return 0.005 if port == 18082 else 0.12
-    values = json.loads(scope_file(DELAYS).read_text())
+    values = json.loads(path.read_text())
     if set(values) != {'18082', '18083'} or any(type(v) not in (int, float) or not 0 <= v <= 2 for v in values.values()):
         raise ValueError('FIXTURE_DELAY_SCHEMA')
     return values[str(port)]
 
 
 def record(kind, **values):
-    append({'time': time.time(), 'kind': kind, **values})
+    append({'time': time.time(), 'kind': kind, **values}, path=EVIDENCE.path(LOG.name))
 
 
 def header(connection):
@@ -150,9 +152,11 @@ class Server(socketserver.ThreadingTCPServer):
 
 
 def main():
+    global EVIDENCE
     import sys
     if not bool(read_completion('baseline-ready')):
         raise RuntimeError('DISPOSABLE_VM_REQUIRED')
+    EVIDENCE = FixtureEvidence()
     if sys.argv[1:] == ['proxy']:
         addresses = [('127.0.0.1', port) for port in (18082, 18083)]
         handler = Proxy

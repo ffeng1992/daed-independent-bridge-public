@@ -50,6 +50,24 @@ class LatenciesTests(unittest.TestCase):
     def seeded(self):
         self.read();self.settle()
         return self.read()[0]
+    def test_manual_results_are_immediately_readable_without_second_probe(self):
+        before = self.probe.inventory('Bearer synthetic')
+        self.probe.remember_manual('Bearer synthetic', 'user', before, self.rows(['a','b']))
+        rows, state = self.read()
+        self.assertEqual(rows, self.rows(['a','b']))
+        self.assertEqual(state['attempts'], 0)
+
+    def test_manual_changed_identity_and_partial_results_not_cached(self):
+        before = self.probe.inventory('Bearer synthetic')
+        self.nodes[0]['link'] = 'ss://changed'
+        with self.assertRaisesRegex(ProbeError, 'NODE_INVENTORY_CHANGED'):
+            self.probe.remember_manual('Bearer synthetic', 'user', before, self.rows(['a']))
+        self.assertEqual(self.probe.records, {})
+        before = self.probe.inventory('Bearer synthetic')
+        with self.assertRaisesRegex(ProbeError, 'OFFICIAL_LATENCY_SCHEMA'):
+            self.probe.remember_manual('Bearer synthetic', 'user', before, [{'id':'a'}])
+        self.assertEqual(self.probe.records, {})
+
     def test_unknown_initially_empty_and_official_results_exact(self):
         self.block=threading.Event()
         result,state=self.read();self.assertEqual(result,[]);self.assertEqual(state['inFlight'],1)
@@ -165,6 +183,20 @@ class ASTTests(unittest.TestCase):
     def test_selected_operation_does_not_intercept_other_documents(self):
         raw=json.dumps({'query':'query A{numberUsers} query B{nodeLatencies{id}}','operationName':'A'}).encode()
         self.adapter.handle(raw,'Bearer synthetic');self.assertEqual(self.calls,[(raw,'Bearer synthetic')])
+    def test_complete_manual_alias_is_observed_once_without_changing_response(self):
+        self.cache.inventory.return_value = {'a':'identity'}
+        raw = b'{"query":"mutation($ids:[ID!]){manual:testNodeLatencies(ids:$ids){id latencyMs alive testedAt message}}","variables":{"ids":["a"]}}'
+        body = b'{"data":{"manual":[]}}'
+        def forward(value, auth):
+            self.calls.append((value,auth))
+            if json.loads(value)['query'] == '{user{username}}':
+                return b'{"data":{"user":{"username":"synthetic"}}}'
+            return body
+        self.adapter.forward = forward
+        self.assertEqual(self.adapter.handle(raw,'Bearer synthetic'), body)
+        self.assertEqual(sum(r == raw for r,a in self.calls), 1)
+        self.cache.remember_manual.assert_called_once_with('Bearer synthetic','synthetic',{'a':'identity'},[])
+
     def test_manual_official_probe_bytes_and_auth_unchanged(self):
         raw=b'{"query":"mutation($ids:[ID!]){testNodeLatencies(ids:$ids){id}}","variables":{"ids":["a"]}}'
         result=self.adapter.handle(raw,'Bearer synthetic');self.assertEqual(self.calls,[(raw,'Bearer synthetic')]);self.assertIn(b'testNodeLatencies',result)

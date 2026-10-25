@@ -101,6 +101,26 @@ class NodeLatencies:
         order = list(dict.fromkeys(priority + sorted(identities)))
         return {k: identities[k] for k in order if k in identities}
 
+    def remember_manual(self, authorization, principal, before, rows):
+        """Reuse completed official measurements only for unchanged identities.
+
+        No probe or fabricated result is produced here. Partial selections are
+        not cacheable; the original mutation response remains untouched.
+        """
+        after = self.inventory(authorization)
+        if after != before:
+            raise ProbeError('NODE_INVENTORY_CHANGED')
+        selected = {r['id']: before[r['id']] for r in rows if type(r) is dict and r.get('id') in before}
+        checked = self.validate_rows(rows, selected)
+        owner = hashlib.sha256(principal.encode()).hexdigest()
+        with self.lock:
+            if self.owner != owner:
+                self.records.clear()
+            self.owner, self.identities = owner, after
+            for ident, row, stamp in checked:
+                self.records[ident] = (after[ident], row, self.clock(), stamp)
+            self.next_refresh = max(self.next_refresh, self.clock() + self.INTERVAL)
+
     def read(self, authorization, principal, ids=None):
         try:
             identities = self.inventory(authorization)

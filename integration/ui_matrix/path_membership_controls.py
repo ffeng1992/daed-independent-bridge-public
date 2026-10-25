@@ -2,6 +2,7 @@
 import json
 from urllib.parse import urlsplit
 from bridge_m4.collect import collect
+from integration.ui_matrix.continue_paths import PathRequestFailure
 from scripts.release_setup import need
 
 
@@ -36,6 +37,8 @@ def run(matrix):
                        applied=applied, candidate=candidate, path=path)
         except Exception as exc:
             row.update(result='FAIL', errorType=type(exc).__name__, reason=str(exc).replace(matrix.token, '[REDACTED]'))
+            if isinstance(exc, PathRequestFailure):
+                row['requestDiagnostic'] = exc.detail
         finally:
             if kind == 'node.update':
                 matrix.api('mutation($id:ID!,$s:String!){updateNode(id:$id,newLink:$s){id}}', {'id': selected, 's': node['link']})

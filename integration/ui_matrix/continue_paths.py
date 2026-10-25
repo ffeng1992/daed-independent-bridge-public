@@ -20,6 +20,13 @@ def events():
     return read_events()
 
 
+class PathRequestFailure(RuntimeError):
+    """Keep the exact failure code while preserving bounded synthetic transport evidence."""
+    def __init__(self, detail):
+        super().__init__('LAN_PATH_FAILED')
+        self.detail = detail
+
+
 class Paths(Matrix):
     def __init__(self):
         super().__init__()
@@ -75,7 +82,21 @@ class Paths(Matrix):
         if blocked:
             need(process.returncode != 0 and not matching, 'BLOCK_RULE_DID_NOT_BLOCK')
         else:
-            need(process.returncode == 0 and process.stdout == 'MATRIX_PATH_OK' and matching, 'LAN_PATH_FAILED')
+            if not (process.returncode == 0 and process.stdout == 'MATRIX_PATH_OK' and matching):
+                raise PathRequestFailure({
+                    'curlRC': process.returncode,
+                    'bodyMatches': process.stdout == 'MATRIX_PATH_OK',
+                    'bodyLength': len(process.stdout),
+                    'curlStderr': process.stderr[:512],
+                    'endpointMatches': len(matching),
+                    'eventKinds': [e.get('kind') for e in evidence[-24:]],
+                    'proxyErrors': [
+                        {'kind': e.get('kind'), 'error': e.get('error'),
+                         'reason': str(e.get('reason', ''))[:160]}
+                        for e in evidence
+                        if e.get('kind') in ('proxy-error', 'proxy-rejected', 'endpoint-error')
+                    ][-8:],
+                })
         return {'curlRC': process.returncode, 'endpoint': matching,
                 'proxy': [e for e in evidence if e['kind'] == 'proxy-request' and e['path'] == '/' + path]}
 
@@ -114,6 +135,8 @@ class Paths(Matrix):
             row['result'] = 'RUNTIME_PASS'
         except Exception as exc:
             row.update(result='FAIL', errorType=type(exc).__name__, reason=str(exc).replace(self.token, '[REDACTED]'))
+            if isinstance(exc, PathRequestFailure):
+                row['requestDiagnostic'] = exc.detail
         finally:
             self.api('mutation($id:ID!){groupSetPolicy(id:$id,policy:fixed,policyParams:[{key:"",val:"0"}])}', {'id': self.group})
             source, proof = collect(self.reader)
@@ -150,6 +173,8 @@ class Paths(Matrix):
             row['result'] = 'RUNTIME_PASS'
         except Exception as exc:
             row.update(result='FAIL', errorType=type(exc).__name__, reason=str(exc).replace(self.token, '[REDACTED]'))
+            if isinstance(exc, PathRequestFailure):
+                row['requestDiagnostic'] = exc.detail
         finally:
             self.api('mutation($id:ID!){updateRouting(id:$id,routing:"fallback: matrix_path"){id}}', {'id': self.routing})
             source, proof = collect(self.reader)
@@ -260,12 +285,12 @@ def main(repair=False, udp_health_only=False, long_sniff_only=False):
             ('proxy-fallback', 'fallback: matrix_path', 'proxy', None),
             ('cidr-direct', "dip('198.51.100.2/32') -> direct\nfallback: block", 'direct', None),
             ('port-protocol-proxy', 'l4proto(tcp) && dport(18080) -> matrix_path\nfallback: block', 'proxy', None),
-            ('domain-proxy', "domain(full: 'path.matrix.invalid') -> matrix_path\nfallback: block", 'proxy', 'path.matrix.invalid'),
             ('order-direct-before-block', "dip('198.51.100.2/32') -> direct\ndip('198.51.100.0/24') -> block\nfallback: block", 'direct', None),
             ('order-block-before-direct', "dip('198.51.100.2/32') -> block\ndip('198.51.100.0/24') -> direct\nfallback: direct", 'block', None),
         ]:
             matrix.route(ident, text, expected, host)
         from integration.ui_matrix.path_dial_controls import run as dial_controls
+        dial_controls(matrix, pending={'routing.domain-proxy'})
         dial_controls(matrix)
         from integration.ui_matrix.path_tolerance_controls import run as tolerance_controls
         tolerance_controls(matrix)

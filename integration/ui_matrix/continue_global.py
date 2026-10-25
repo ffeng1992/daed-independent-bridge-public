@@ -86,6 +86,27 @@ def candidate_value(candidate, field, expected):
     need(type(actual) is type(wanted) and actual == wanted, 'CANDIDATE_VALUE_CHANGED')
     return actual
 
+def config_chain_classification(key):
+    """Classify the completed chain, never claim an unobserved runtime effect."""
+    if key != 'enableLocalTcpFastRedirect':
+        return {'result':'CONFIG_PASS','runtimeEvidence':'NOT_CLAIMED_CONFIG_CHAIN_ONLY'}
+    import hashlib
+    from bridge_m4.upstream_contracts import DAE_VERSION
+    path = Path(__file__).resolve().parents[2]/'docs/WEB-FIELD-MATRIX.md'
+    body = path.read_bytes()
+    heading = '### config.enableLocalTcpFastRedirect\n'
+    need(heading in body.decode(), 'DEPRECATED_SOURCE_EVIDENCE_MISSING')
+    section = body.decode().split(heading,1)[1].split('\n### ',1)[0]
+    need(DAE_VERSION == 'v2.1.1' and section.lstrip().startswith('Owner: official DAE. Locked version:')
+         and 'dbae2e82d3ed5324e1648548720f8bbc8cde3882' in section
+         and '`config/config.go`' in section and 'deprecated: not used' in section,
+         'DEPRECATED_SOURCE_EVIDENCE_MISMATCH')
+    return {'result':'FAIL','owner':'official DAE','reason':'UPSTREAM_DEPRECATED_NO_RUNTIME_IMPLEMENTATION',
+            'runtimeEvidence':'NOT_CLAIMED_PINNED_SOURCE_FINDING',
+            'sourceEvidence':{'file':'docs/WEB-FIELD-MATRIX.md','sha256':hashlib.sha256(body).hexdigest(),
+                              'section':heading.strip(),'sectionSha256':hashlib.sha256(section.encode()).hexdigest()}}
+
+
 class Matrix:
     def __init__(self):
         from integration.packaging.onboarding import USERNAME, PASSWORD
@@ -168,12 +189,12 @@ class Matrix:
             # Persist synthetic candidate evidence, including every unchanged field.
             record.update(daeField=dae,applied=applied,candidate=candidate,candidateValue=emitted,configChainPassed=True)
             if key=='enableLocalTcpFastRedirect':
-                record.update(result='FAIL',reason='UPSTREAM_DEPRECATED_NO_RUNTIME_IMPLEMENTATION')
+                record.update(config_chain_classification(key))
             elif key=='tproxyPort':
                 evidence=observe_listener(applied['status']['MainPID'],value)
                 record.update(result='RUNTIME_PASS',runtimeEvidence=evidence)
             else:
-                record.update(runtimeEvidence='PENDING_SEMANTIC_RUNTIME_OBSERVATION')
+                record.update(config_chain_classification(key))
             record['stage']='restore'
         except Exception as exc:
             record.update(result='FAIL',errorType=type(exc).__name__,reason=str(exc).replace(self.token,'[REDACTED]'))

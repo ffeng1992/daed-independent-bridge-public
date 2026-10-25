@@ -94,6 +94,48 @@ class Adapter:
         self.control_lock = threading.Lock()
         self.latencies = latencies
 
+    def forward_config(self, raw, authorization):
+        from .graphql_config import preserve_create_false
+        # The official manual measurement is still forwarded verbatim, once.
+        # Observe only a valid selected mutation and complete latency objects.
+        context = None
+        if self.latencies is not None:
+            try:
+                value = json.loads(raw)
+                document = parse(value['query'])
+                operation = get_operation_ast(document, value.get('operationName'))
+                if operation and operation.operation.value == 'mutation' and not validate(self.schema, document):
+                    from graphql.execution.collect_fields import collect_fields
+                    from graphql.execution.values import get_variable_values
+                    variables = get_variable_values(self.schema, operation.variable_definitions or (), value.get('variables') or {})
+                    if isinstance(variables, dict):
+                        fragments = {d.name.value:d for d in document.definitions if isinstance(d, FragmentDefinitionNode)}
+                        fields = collect_fields(self.schema, fragments, variables, self.schema.mutation_type, operation.selection_set)
+                        keys = []
+                        for key, nodes in fields.items():
+                            if nodes[0].name.value != 'testNodeLatencies':
+                                continue
+                            from graphql import get_named_type
+                            selected = collect_fields(self.schema, fragments, variables, get_named_type(self.schema.mutation_type.fields['testNodeLatencies'].type), nodes[0].selection_set)
+                            if set(selected) == {'id','latencyMs','alive','testedAt','message'} and all(all(n.alias is None and n.name.value == k for n in ns) for k,ns in selected.items()):
+                                keys.append(key)
+                        if keys:
+                            auth = request('{user{username}}', authorization, self.forward)
+                            if not auth.get('errors') and (auth.get('data') or {}).get('user'):
+                                context = (keys, auth['data']['user']['username'], self.latencies.inventory(authorization))
+            except Exception:
+                context = None  # Cache is optional; never suppress/duplicate the mutation.
+        body = preserve_create_false(raw, authorization, self.forward)
+        if context is not None:
+            try:
+                result = json.loads(body)
+                if not result.get('errors'):
+                    for key in context[0]:
+                        self.latencies.remember_manual(authorization, context[1], context[2], result['data'][key])
+            except Exception:
+                pass  # Invalid/partial/stale measurements must not become cached data.
+        return body
+
     def handle(self, raw, authorization):
         value = json.loads(raw)
         # Ordinary documents are forwarded byte-for-byte, including variables.
@@ -105,8 +147,7 @@ class Adapter:
         if operation is None:
             return self.forward(raw, authorization)
         if not touches_runtime(document, operation, self.schema):
-            from .graphql_config import preserve_create_false
-            return preserve_create_false(raw, authorization, self.forward)
+            return self.forward_config(raw, authorization)
         errors = validate(self.schema, document)
         if errors:
             return json.dumps({'errors': [e.formatted for e in errors]}).encode()
@@ -147,8 +188,7 @@ class Adapter:
                     op.selection_set = SelectionSetNode(selections=(FieldNode(name=NameNode(value='general'), selection_set=op.selection_set),))
                     query = print_ast(sub)
                 body = json.dumps({'query': query, 'variables': info.variable_values}).encode()
-                from .graphql_config import preserve_create_false
-                response = json.loads(preserve_create_false(body, authorization, self.forward))
+                response = json.loads(self.forward_config(body, authorization))
                 if response.get('errors'):
                     raise GraphQLError(response['errors'][0]['message'])
                 data = response['data']

@@ -3,19 +3,23 @@ import json
 import time
 
 from bridge_m4.collect import collect
+from integration.ui_matrix.continue_paths import PathRequestFailure
 from integration.ui_matrix.continue_global import candidate_value
 from integration.ui_matrix.path_fixture import DELAYS
+from integration.ui_matrix.evidence_scope import scope_file
 from scripts.release_setup import need
 
 
 def delays(first, second):
-    temporary = DELAYS.with_suffix('.new')
+    path = scope_file(DELAYS)
+    temporary = path.with_suffix('.new')
     temporary.write_text(json.dumps({'18082': first, '18083': second}))
-    temporary.replace(DELAYS)
+    temporary.replace(path)
 
 
 def run(matrix):
-    need(not DELAYS.exists(), 'DELAY_FIXTURE_ALREADY_PRESENT')
+    path = scope_file(DELAYS)
+    need(not path.exists(), 'DELAY_FIXTURE_ALREADY_PRESENT')
     profile = None
     try:
         for tolerance, expected in [('800ms', 18082), ('20ms', 18083)]:
@@ -52,8 +56,10 @@ def run(matrix):
                 row.update(result='RUNTIME_PASS', scope='Actual group selection under controlled HTTP proxy delays, no netem claim')
             except Exception as exc:
                 row.update(result='FAIL', errorType=type(exc).__name__, reason=str(exc).replace(matrix.token, '[REDACTED]'))
+                if isinstance(exc, PathRequestFailure):
+                    row['requestDiagnostic'] = exc.detail
             finally:
-                DELAYS.unlink(missing_ok=True)
+                path.unlink(missing_ok=True)
                 matrix.api('mutation($id:ID!){selectConfig(id:$id)}', {'id': matrix.config})
                 if profile:
                     matrix.api('mutation($id:ID!){removeConfig(id:$id)}', {'id': profile}); profile = None
@@ -65,4 +71,4 @@ def run(matrix):
                 matrix.save()
             print(row['id'] + ': ' + row['result'], flush=True)
     finally:
-        DELAYS.unlink(missing_ok=True)
+        path.unlink(missing_ok=True)

@@ -14,6 +14,13 @@ from integration.ui_matrix.path_fixture import client_hello_program
 from scripts.release_setup import need
 
 
+def domain_witness_routing():
+    # DAE routes its DNS upstream too. Keep the witness reachable without
+    # allowing unrelated traffic past the case's fail-closed fallback.
+    return ("dip('127.0.0.1/32') && dport(15358) && l4proto(udp) -> direct\n"
+            "domain(full: 'path.matrix.invalid') -> matrix_path\nfallback: block")
+
+
 def target_authority(raw):
     # HTTP absolute-form and CONNECT express the same destination differently.
     # Keep the raw observed event, compare only its actual host and port.
@@ -56,7 +63,7 @@ def run(matrix, pending=None):
                                     {'d': dns_text})['createDns']['id']
                 matrix.api('mutation($id:ID!){selectDns(id:$id)}', {'id': dns_id})
                 matrix.fixture_source, _ = collect(matrix.reader)
-                matrix.route('domain-proxy', "domain(full: 'path.matrix.invalid') -> matrix_path\nfallback: block",
+                matrix.route('domain-proxy', domain_witness_routing(),
                              'proxy', 'path.matrix.invalid:18080', dns_warmup=True)
             finally:
                 matrix.api('mutation($id:ID!){selectDns(id:$id)}', {'id': original_dns['id']})

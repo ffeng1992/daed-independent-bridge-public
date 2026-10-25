@@ -190,17 +190,17 @@ class Paths(Matrix):
         try:
             before = len(events())
             values = self.api('mutation{testNodeLatencies{id latencyMs alive testedAt message}}')['testNodeLatencies']
-            observed = self.api('{nodeLatencies{id latencyMs alive testedAt message}}')['nodeLatencies']
             selected = [value for value in values if value['id'] in self.nodes]
-            row.update(response=values, readback=observed, endpointEvents=events()[before:])
+            row.update(response=values, cacheReadback='NOT_VERIFIED',
+                       cacheReadbackReason='NO_SIDE_EFFECT_FREE_RUNNING_CACHE_INTERFACE',
+                       endpointEvents=events()[before:])
             need({value['id'] for value in selected} == set(self.nodes), 'LATENCY_NODE_IDENTITY_MISSING')
             need(all(value['alive'] is True and type(value['latencyMs']) in (int, float)
                      and value['latencyMs'] > 0 and value['testedAt'] for value in selected),
                  'LATENCY_NOT_REAL_NONEMPTY_RESULT')
-            need(all(value in observed for value in selected), 'LATENCY_READBACK_CHANGED')
             need(any(event['kind'] == 'proxy-request' for event in row['endpointEvents']),
                  'LATENCY_PROXY_PROBE_NOT_OBSERVED')
-            row.update(result='RUNTIME_PASS', scope='ACTUAL_API_PROBE_AND_READBACK_NOT_BROWSER_DISPLAY')
+            row.update(result='RUNTIME_PASS', scope='ACTUAL_API_PROBE_AND_PATH_NOT_CACHE_READBACK_OR_BROWSER_DISPLAY')
         except Exception as exc:
             row.update(result='FAIL', errorType=type(exc).__name__, reason=str(exc).replace(self.token, '[REDACTED]'))
         source, _ = collect(self.reader)

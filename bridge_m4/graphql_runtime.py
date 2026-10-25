@@ -95,6 +95,16 @@ class Adapter:
         self.latencies = latencies
 
     def forward_config(self, raw, authorization):
+        from .manual_latency_diagnostics import manual_fields, Observation
+        fields = manual_fields(self.schema, raw)
+        observation = Observation(fields) if fields else None
+        try:
+            return self._forward_config_observed(raw, authorization, observation)
+        finally:
+            if observation is not None:
+                observation.finish()
+
+    def _forward_config_observed(self, raw, authorization, observation):
         from .graphql_config import preserve_create_false
         # The official manual measurement is still forwarded verbatim, once.
         # Observe only a valid selected mutation and complete latency objects.
@@ -125,14 +135,34 @@ class Adapter:
                                 context = (keys, auth['data']['user']['username'], self.latencies.inventory(authorization))
             except Exception:
                 context = None  # Cache is optional; never suppress/duplicate the mutation.
-        body = preserve_create_false(raw, authorization, self.forward)
+        from .manual_latency_diagnostics import manual_fields
+        def manual_fields_for_forward(value):
+            return manual_fields(self.schema, value) is not None
+        def forward(value, auth):
+            if observation is not None and (value == raw or manual_fields_for_forward(value)):
+                return observation.forward(value, auth, self.forward)
+            return self.forward(value, auth)
+        try:
+            body = preserve_create_false(raw, authorization, forward)
+        except Exception:
+            if observation is not None and observation.value['category'] == 'UPSTREAM_RESULT':
+                observation.bridge_error()
+            raise
         if context is not None:
             try:
                 result = json.loads(body)
                 if not result.get('errors'):
                     for key in context[0]:
                         self.latencies.remember_manual(authorization, context[1], context[2], result['data'][key])
-            except Exception:
+                    if observation is not None:
+                        observation.value['cacheRecorded'] = True
+            except Exception as exc:
+                if observation is not None and observation.value['category'] == 'UPSTREAM_RESULT':
+                    from .node_latencies import ProbeError
+                    if isinstance(exc, ProbeError) and str(exc).startswith('OFFICIAL_LATENCY_'):
+                        observation.value.update(category='INVALID_UPSTREAM_RESPONSE', errorCategory='CACHE_RESULT_REJECTED')
+                    else:
+                        observation.bridge_error()
                 pass  # Invalid/partial/stale measurements must not become cached data.
         return body
 

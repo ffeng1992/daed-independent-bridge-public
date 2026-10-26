@@ -209,7 +209,7 @@ class HTTPTimeoutTests(unittest.TestCase):
     def test_real_http_probe_timeout_does_not_block_reads_or_add_jobs(self):
         import urllib.request
         from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-        release=threading.Event();jobs=[]
+        release=threading.Event();jobs=[];timings=[]
         class Handler(BaseHTTPRequestHandler):
             def log_message(self,*args):pass
             def do_POST(self):
@@ -227,11 +227,27 @@ class HTTPTimeoutTests(unittest.TestCase):
         thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
         def transport(raw,auth,timeout):
             req=urllib.request.Request('http://127.0.0.1:'+str(server.server_port),data=raw,headers={'Authorization':auth})
-            with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(req,timeout=timeout) as response:return response.read()
+            started=time.monotonic()
+            try:
+                with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(req,timeout=timeout) as response:return response.read()
+            finally:
+                timings.append({'operation':'probe' if b'testNodeLatencies' in raw else 'inventory', 'seconds':time.monotonic()-started})
         probe=NodeLatencies(transport);probe.PROBE_TIMEOUT=.05
         try:
-            start=time.monotonic();rows,_=probe.read('Bearer synthetic','synthetic')
-            self.assertLess(time.monotonic()-start,.2);self.assertEqual(rows,[])
+            import resource
+            from pathlib import Path
+            def scheduling():
+                p=Path('/proc/self/schedstat')
+                return p.read_text().strip() if p.exists() else None
+            usage=resource.getrusage(resource.RUSAGE_SELF);sched=scheduling()
+            cpu=time.process_time();start=time.monotonic()
+            rows,_=probe.read('Bearer synthetic','synthetic')
+            elapsed=time.monotonic()-start
+            after=resource.getrusage(resource.RUSAGE_SELF)
+            print('HTTP_TIMEOUT_TIMING '+json.dumps({'readSeconds':elapsed,'cpuSeconds':time.process_time()-cpu,
+                'transport':list(timings),'schedstatBefore':sched,'schedstatAfter':scheduling(),
+                'voluntarySwitches':after.ru_nvcsw-usage.ru_nvcsw,'involuntarySwitches':after.ru_nivcsw-usage.ru_nivcsw}),flush=True)
+            self.assertLess(elapsed,.2);self.assertEqual(rows,[])
             deadline=time.monotonic()+2
             while probe.busy and time.monotonic()<deadline:time.sleep(.01)
             self.assertFalse(probe.busy);self.assertTrue(probe.circuit_open)
